@@ -1,0 +1,23 @@
+<div class="container mt-4">
+  @if (isAuthenticated()) {
+    <div class="row">
+      <div class="col">
+        <p>Is Authenticated: <strong>true</strong></p>
+        <button class="btn btn-danger" (click)="logout()">Logout</button>
+      </div>
+    </div>
+
+    @if (userData().userData; as user) {
+      <hr />
+      <h5>User Data</h5>
+      <pre>{{ user | json }}</pre>
+    }
+  } @else {
+    <div class="row">
+      <div class="col">
+        <p>Is Authenticated: <strong>false</strong></p>
+        <button class="btn btn-primary" (click)="login()">Login</button>
+      </div>
+    </div>
+  }
+</div>
