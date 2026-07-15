@@ -1,10 +1,11 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { Auth } from '../auth/auth';
+import { Header } from '../header/header';
+import { Footer } from '../footer/footer';
 
 @Component({
   selector: 'app-admin-layout',
-  imports: [RouterOutlet, Auth],
+  imports: [RouterOutlet, Header, Footer],
   templateUrl: './admin-layout.html',
   styleUrl: './admin-layout.css',
 })
