@@ -1,10 +1,11 @@
 import { provideAuth, withAppInitializerAuthCheck } from 'angular-auth-oidc-client';
+import { environment } from '../../environments/environment';
 
 export const authConfig = {
-  authority: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_KXyVp3ZAW',
-  redirectUrl: 'http://localhost:4200',
-  clientId: '6imkctvt738uoe2ffil8hldrl3',
-  scope: 'phone openid email',
+  authority: environment.auth.authority,
+  redirectUrl: environment.auth.redirectUrl,
+  clientId: environment.auth.clientId,
+  scope: environment.auth.scope,
   responseType: 'code',
   silentRenew: true,
   useRefreshToken: true,
