@@ -18,11 +18,23 @@ No lint or e2e scripts are configured (README mentions `ng e2e` but angular.json
 
 - Angular 21, standalone components only (no NgModules)
 - Entrypoint: `src/main.ts` bootstraps `App` from `src/app/app.ts` using `appConfig` from `src/app/app.config.ts`
-- Routes defined in `src/app/app.routes.ts`
+- Routes defined in `src/app/app.routes.ts`; `/admin` uses `AdminLayout` (header/footer + router outlet), guarded by `authGuard`, with children like `ControlPanel` and `Register`
 - Global styles: `src/styles.css` (plain CSS, not SCSS)
 - **Bootstrap 5** is a dependency — CSS classes and utilities are available
 - **Angular Signals** (`signal()`) are used for reactive state, not RxJS `BehaviorSubject`
-- `src/app/` content is placeholder/scaffolding; replace freely
+- Forms use **Reactive Forms** (`FormBuilder.nonNullable.group`), see `src/app/register/register.ts`
+
+## Auth & backend
+
+- OIDC auth via `angular-auth-oidc-client` (AWS Cognito); config in `src/app/auth/auth.config.ts`, wrapper `AuthService` in `src/app/auth/auth.service.ts`, route guard in `src/app/auth/auth.guard.ts`
+- HTTP: `provideHttpClient(withInterceptors([authInterceptor()]))` in `app.config.ts` — the Bearer token is attached automatically for URLs listed in `secureRoutes` (the API base URL)
+- Base API client: `src/app/core/api.service.ts` (`ApiService` with typed `get/post/put/delete` prefixed with `environment.api.baseUrl`); feature services should inject it
+
+## Environment config
+
+- All runtime parameters live in `.env` (gitignored): `AUTH_AUTHORITY`, `AUTH_REDIRECT_URL`, `AUTH_CLIENT_ID`, `AUTH_SCOPE`, `API_BASE_URL`
+- `npm run generate-env` (runs automatically via `prestart`/`prebuild`) executes `scripts/generate-env.mjs`, which generates `src/environments/environment.ts` (also gitignored — never edit it manually)
+- Adding a new env var: add it to `.env` AND to the template in `scripts/generate-env.mjs`
 
 ## File-naming quirk
 
