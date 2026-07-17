@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import Swal from 'sweetalert2';
 import { PersonaService, Persona } from './persona.service';
 
 @Component({
@@ -41,6 +42,47 @@ export class Register {
     this.saveSuccess.set(false);
     this.saveError.set(null);
 
+    this.personaService
+      .search({
+        nombre: persona.nombre,
+        primerApellido: persona.primerApellido,
+        segundoApellido: persona.segundoApellido || undefined,
+        fecnac: persona.fecNac || undefined,
+      })
+      .subscribe({
+        next: (existing) => {
+          if (existing && existing.idPersona != null) {
+            console.log("on existing")
+            this.confirmDuplicate(persona);
+          } else {
+            console.log("no existing")
+            this.create(persona);
+          }
+        },
+        error: () => {
+          this.create(persona);
+        },
+      });
+  }
+
+  private confirmDuplicate(persona: Persona): void {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Persona ya registrada',
+      text: 'Ya existe una persona con datos similares. ¿Deseas continuar con un nuevo registro similar?',
+      showCancelButton: true,
+      confirmButtonText: 'Continuar',
+      cancelButtonText: 'Cancelar',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.create(persona);
+      } else {
+        this.saving.set(false);
+      }
+    });
+  }
+
+  private create(persona: Persona): void {
     this.personaService.create(persona).subscribe({
       next: () => {
         this.saving.set(false);
