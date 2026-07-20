@@ -47,11 +47,11 @@ export class Register {
         nombre: persona.nombre,
         primerApellido: persona.primerApellido,
         segundoApellido: persona.segundoApellido || undefined,
-        fecnac: persona.fecNac || undefined,
+        fecNac: persona.fecNac || undefined,
       })
       .subscribe({
         next: (existing) => {
-          if (existing && existing.idPersona != null) {
+          if (existing && existing.length > 0) {
             console.log("on existing")
             this.confirmDuplicate(persona);
           } else {

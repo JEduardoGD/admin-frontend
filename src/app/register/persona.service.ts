@@ -14,7 +14,7 @@ export interface PersonaSearchCriteria {
   nombre?: string;
   primerApellido?: string;
   segundoApellido?: string;
-  fecnac?: string;
+  fecNac?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -25,12 +25,12 @@ export class PersonaService {
     return this.api.post<Persona>('persona', persona);
   }
 
-  search(criteria: PersonaSearchCriteria): Observable<Persona> {
+  search(criteria: PersonaSearchCriteria): Observable<Array<Persona>> {
     const params: Record<string, string> = {};
     if (criteria.nombre) params['nombre'] = criteria.nombre;
     if (criteria.primerApellido) params['primerApellido'] = criteria.primerApellido;
     if (criteria.segundoApellido) params['segundoApellido'] = criteria.segundoApellido;
-    if (criteria.fecnac) params['fecnac'] = criteria.fecnac;
-    return this.api.get<Persona>('persona', params);
+    if (criteria.fecNac) params['fecNac'] = criteria.fecNac;
+    return this.api.get<Array<Persona>>('persona', params);
   }
 }
