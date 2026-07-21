@@ -20,9 +20,11 @@ No lint or e2e scripts are configured (README mentions `ng e2e` but angular.json
 - Entrypoint: `src/main.ts` bootstraps `App` from `src/app/app.ts` using `appConfig` from `src/app/app.config.ts`
 - Routes defined in `src/app/app.routes.ts`; `/admin` uses `AdminLayout` (header/footer + router outlet), guarded by `authGuard`, with children like `ControlPanel` and `Register`
 - Global styles: `src/styles.css` (plain CSS, not SCSS)
-- **Bootstrap 5** is a dependency — CSS classes and utilities are available
-- **Angular Signals** (`signal()`) are used for reactive state, not RxJS `BehaviorSubject`
+- **Bootstrap 5** is imported in `src/styles.css` — CSS classes and utilities are available everywhere
+- **Angular Signals** (`signal()`) are used for component-local reactive state; **RxJS Observables** still drive HTTP (via `ApiService`) and auth events (via `OidcSecurityService`)
+- **`inject()`** (functional DI) is used everywhere, not constructor injection
 - Forms use **Reactive Forms** (`FormBuilder.nonNullable.group`), see `src/app/register/register.ts`
+- **SweetAlert2** (`sweetalert2`) is a dependency — use for confirmation dialogs, not Angular Material or Bootstrap modals
 
 ## Auth & backend
 
