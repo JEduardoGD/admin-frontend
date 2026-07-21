@@ -25,6 +25,10 @@ export class PersonaService {
     return this.api.post<Persona>('persona', persona);
   }
 
+  update(persona: Persona): Observable<Persona> {
+    return this.api.post<Persona>('/persona/update', persona);
+  }
+
   search(criteria: PersonaSearchCriteria): Observable<Array<Persona>> {
     const params: Record<string, string> = {};
     if (criteria.nombre) params['nombre'] = criteria.nombre;

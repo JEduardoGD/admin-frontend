@@ -18,6 +18,7 @@ export class Register {
   readonly saveError = signal<string | null>(null);
 
   readonly personaForm = this.fb.nonNullable.group({
+    idPersona: [''],
     nombre: ['', [Validators.required, Validators.maxLength(250)]],
     primerApellido: ['', [Validators.required, Validators.maxLength(250)]],
     segundoApellido: ['', [Validators.maxLength(250)]],
@@ -84,10 +85,36 @@ export class Register {
 
   private create(persona: Persona): void {
     this.personaService.create(persona).subscribe({
-      next: () => {
+      next: (saved) => {
         this.saving.set(false);
         this.saveSuccess.set(true);
-        this.personaForm.reset();
+        this.personaForm.patchValue({
+          idPersona: saved.idPersona?.toString() ?? '',
+          nombre: saved.nombre,
+          primerApellido: saved.primerApellido,
+          segundoApellido: saved.segundoApellido ?? '',
+          fecNac: saved.fecNac ?? '',
+        });
+      },
+      error: () => {
+        this.saving.set(false);
+        this.saveError.set('No se pudo guardar la persona. Intenta de nuevo.');
+      },
+    });
+  }
+
+  private update(persona: Persona): void {
+    this.personaService.update(persona).subscribe({
+      next: (saved) => {
+        this.saving.set(false);
+        this.saveSuccess.set(true);
+        this.personaForm.patchValue({
+          idPersona: saved.idPersona?.toString() ?? '',
+          nombre: saved.nombre,
+          primerApellido: saved.primerApellido,
+          segundoApellido: saved.segundoApellido ?? '',
+          fecNac: saved.fecNac ?? '',
+        });
       },
       error: () => {
         this.saving.set(false);
