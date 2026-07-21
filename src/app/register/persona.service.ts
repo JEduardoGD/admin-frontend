@@ -26,7 +26,7 @@ export class PersonaService {
   }
 
   update(persona: Persona): Observable<Persona> {
-    return this.api.post<Persona>('/persona/update', persona);
+    return this.api.post<Persona>('persona/update', persona);
   }
 
   search(criteria: PersonaSearchCriteria): Observable<Array<Persona>> {

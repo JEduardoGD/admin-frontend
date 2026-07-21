@@ -32,7 +32,9 @@ export class Register {
     }
 
     const value = this.personaForm.getRawValue();
+    const idPersona = value.idPersona ? Number(value.idPersona) : undefined;
     const persona: Persona = {
+      ...(idPersona !== undefined ? { idPersona } : {}),
       nombre: value.nombre,
       primerApellido: value.primerApellido,
       segundoApellido: value.segundoApellido || null,
@@ -42,6 +44,11 @@ export class Register {
     this.saving.set(true);
     this.saveSuccess.set(false);
     this.saveError.set(null);
+
+    if (idPersona !== undefined) {
+      this.update(persona);
+      return;
+    }
 
     this.personaService
       .search({
@@ -53,10 +60,8 @@ export class Register {
       .subscribe({
         next: (existing) => {
           if (existing && existing.length > 0) {
-            console.log("on existing")
             this.confirmDuplicate(persona);
           } else {
-            console.log("no existing")
             this.create(persona);
           }
         },
