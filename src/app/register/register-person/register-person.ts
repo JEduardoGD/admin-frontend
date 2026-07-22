@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import Swal from 'sweetalert2';
-import { PersonaService, Persona } from './persona.service';
+import { PersonaService, Persona } from '../persona.service';
 
 @Component({
   selector: 'app-register-person',
