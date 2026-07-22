@@ -2,13 +2,15 @@
   <h2>Register</h2>
   <ul class="nav nav-tabs">
     <li class="nav-item">
-      <a class="nav-link" [class.active]="activeTab() === 'persona'" href="#" (click)="selectTab('persona'); $event.preventDefault()">Datos persona</a>
+      <a class="nav-link" [class.active]="activeTab() === 'persona'" href="#"
+        (click)="selectTab('persona'); $event.preventDefault()">Datos persona</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" [class.active]="activeTab() === 'domicilio'" href="#" (click)="selectTab('domicilio'); $event.preventDefault()">Datos domicilio y contacto</a>
+      <a class="nav-link" [class.active]="activeTab() === 'domicilio'" href="#"
+        (click)="selectTab('domicilio'); $event.preventDefault()">Datos domicilio y contacto</a>
     </li>
   </ul>
 
   @if (activeTab() === 'persona') {
-    <app-register-person />
+  <app-register-person />
   }
