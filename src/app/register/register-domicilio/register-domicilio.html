@@ -1,0 +1,68 @@
+<form [formGroup]="domicilioForm" (ngSubmit)="onSubmit()" class="mt-3" style="max-width: 480px">
+  <div class="mb-3">
+    <label for="cp" class="form-label">Código Postal</label>
+    <input id="cp" type="text" class="form-control" formControlName="cp"
+      [class.is-invalid]="domicilioForm.controls.cp.invalid && domicilioForm.controls.cp.touched" />
+    @if (domicilioForm.controls.cp.invalid && domicilioForm.controls.cp.touched) {
+    <div class="invalid-feedback">El código postal es requerido.</div>
+    }
+  </div>
+
+  <div class="mb-3">
+    <label for="domicilio" class="form-label">Domicilio</label>
+    <input id="domicilio" type="text" class="form-control" formControlName="domicilio"
+      [class.is-invalid]="domicilioForm.controls.domicilio.invalid && domicilioForm.controls.domicilio.touched" />
+    @if (domicilioForm.controls.domicilio.invalid && domicilioForm.controls.domicilio.touched) {
+    <div class="invalid-feedback">El domicilio es requerido.</div>
+    }
+  </div>
+
+  <div class="mb-3">
+    <label for="entidadFederativa" class="form-label">Entidad Federativa</label>
+    <input id="entidadFederativa" type="text" class="form-control" formControlName="entidadFederativa"
+      [class.is-invalid]="domicilioForm.controls.entidadFederativa.invalid && domicilioForm.controls.entidadFederativa.touched" />
+    @if (domicilioForm.controls.entidadFederativa.invalid && domicilioForm.controls.entidadFederativa.touched) {
+    <div class="invalid-feedback">La entidad federativa es requerida.</div>
+    }
+  </div>
+
+  <div class="mb-3">
+    <label for="municipio" class="form-label">Municipio</label>
+    <input id="municipio" type="text" class="form-control" formControlName="municipio"
+      [class.is-invalid]="domicilioForm.controls.municipio.invalid && domicilioForm.controls.municipio.touched" />
+    @if (domicilioForm.controls.municipio.invalid && domicilioForm.controls.municipio.touched) {
+    <div class="invalid-feedback">El municipio es requerido.</div>
+    }
+  </div>
+
+  <div class="mb-3">
+    <label for="localidad" class="form-label">Localidad</label>
+    <input id="localidad" type="text" class="form-control" formControlName="localidad"
+      [class.is-invalid]="domicilioForm.controls.localidad.invalid && domicilioForm.controls.localidad.touched" />
+    @if (domicilioForm.controls.localidad.invalid && domicilioForm.controls.localidad.touched) {
+    <div class="invalid-feedback">La localidad es requerida.</div>
+    }
+  </div>
+
+  <div class="mb-3">
+    <label for="pais" class="form-label">País</label>
+    <input id="pais" type="text" class="form-control" formControlName="pais"
+      [class.is-invalid]="domicilioForm.controls.pais.invalid && domicilioForm.controls.pais.touched" />
+    @if (domicilioForm.controls.pais.invalid && domicilioForm.controls.pais.touched) {
+    <div class="invalid-feedback">El país es requerido.</div>
+    }
+  </div>
+
+  @if (saveSuccess()) {
+  <div class="alert alert-success">Domicilio guardado correctamente.</div>
+  }
+  @if (saveError()) {
+  <div class="alert alert-danger">{{ saveError() }}</div>
+  }
+
+  <button type="submit" class="btn btn-primary" [disabled]="saving()">
+    @if (saving()) { Guardando... }
+    @else if (domicilioForm.controls.idDomicilio.value) { Actualizar }
+    @else { Guardar }
+  </button>
+</form>

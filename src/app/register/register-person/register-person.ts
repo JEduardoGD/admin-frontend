@@ -1,7 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import Swal from 'sweetalert2';
-import { PersonaService, Persona } from '../persona.service';
+import { PersonaService, Persona } from './persona.service';
 
 @Component({
   selector: 'app-register-person',
@@ -12,6 +12,8 @@ import { PersonaService, Persona } from '../persona.service';
 export class RegisterPerson {
   private readonly fb = inject(FormBuilder);
   private readonly personaService = inject(PersonaService);
+
+  readonly personaSaved = output<number>();
 
   readonly saving = signal(false);
   readonly saveSuccess = signal(false);
@@ -100,6 +102,9 @@ export class RegisterPerson {
           segundoApellido: saved.segundoApellido ?? '',
           fecNac: saved.fecNac ?? '',
         });
+        if (saved.idPersona) {
+          this.personaSaved.emit(saved.idPersona);
+        }
       },
       error: () => {
         this.saving.set(false);
@@ -120,6 +125,9 @@ export class RegisterPerson {
           segundoApellido: saved.segundoApellido ?? '',
           fecNac: saved.fecNac ?? '',
         });
+        if (saved.idPersona) {
+          this.personaSaved.emit(saved.idPersona);
+        }
       },
       error: () => {
         this.saving.set(false);
