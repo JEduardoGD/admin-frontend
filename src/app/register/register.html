@@ -12,13 +12,13 @@
   </ul>
 
   @if (activeTab() === 'persona') {
-  <app-register-person (personaSaved)="onPersonaSaved($event)" />
+      <app-register-person (personaSaved)="onPersonaSaved($event)" />
   }
 
   @if (activeTab() === 'domicilio') {
     @if (idPersona()) {
-    <app-register-domicilio [idPersona]="idPersona()!" />
+      <app-register-domicilio [idPersona]="idPersona()!" />
     } @else {
-    <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
     }
   }
