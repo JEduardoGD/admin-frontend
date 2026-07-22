@@ -1,93 +1,14 @@
 <div class="container mt-4">
   <h2>Register</h2>
+  <ul class="nav nav-tabs">
+    <li class="nav-item">
+      <a class="nav-link" [class.active]="activeTab() === 'persona'" href="#" (click)="selectTab('persona'); $event.preventDefault()">Datos persona</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" [class.active]="activeTab() === 'domicilio'" href="#" (click)="selectTab('domicilio'); $event.preventDefault()">Datos domicilio y contacto</a>
+    </li>
+  </ul>
 
-  <div class="accordion accordion-flush" id="accordionFlushExample">
-    <div class="accordion-item">
-      <h2 class="accordion-header" id="flush-headingOne">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseOne" aria-expanded="false" aria-controls="flush-collapseOne">
-          Datos persona
-        </button>
-      </h2>
-      <div id="flush-collapseOne" class="accordion-collapse collapse" aria-labelledby="flush-headingOne" data-bs-parent="#accordionFlushExample">
-        <form [formGroup]="personaForm" (ngSubmit)="onSubmit()" class="mt-3" style="max-width: 480px">
-          <div class="mb-3">
-            <label for="idPersona" class="form-label">ID Persona</label>
-            <input type="text" id="idPersona" class="form-control" formControlName="idPersona" readonly />
-          </div>
-
-          <div class="mb-3">
-            <label for="nombre" class="form-label">Nombre *</label>
-            <input
-              type="text"
-              id="nombre"
-              class="form-control"
-              formControlName="nombre"
-              maxlength="250"
-              [class.is-invalid]="
-                personaForm.controls.nombre.invalid && personaForm.controls.nombre.touched
-              "
-            />
-            <div class="invalid-feedback">El nombre es obligatorio.</div>
-          </div>
-
-          <div class="mb-3">
-            <label for="primerApellido" class="form-label">Primer apellido *</label>
-            <input
-              type="text"
-              id="primerApellido"
-              class="form-control"
-              formControlName="primerApellido"
-              maxlength="250"
-              [class.is-invalid]="
-                personaForm.controls.primerApellido.invalid && personaForm.controls.primerApellido.touched
-              "
-            />
-            <div class="invalid-feedback">El primer apellido es obligatorio.</div>
-          </div>
-
-          <div class="mb-3">
-            <label for="segundoApellido" class="form-label">Segundo apellido</label>
-            <input
-              type="text"
-              id="segundoApellido"
-              class="form-control"
-              formControlName="segundoApellido"
-              maxlength="250"
-            />
-          </div>
-
-          <div class="mb-3">
-            <label for="fecNac" class="form-label">Fecha de nacimiento</label>
-            <input type="date" id="fecNac" class="form-control" formControlName="fecNac" />
-          </div>
-
-          @if (saveSuccess()) {
-            <div class="alert alert-success">Persona guardada correctamente.</div>
-          }
-          @if (saveError()) {
-            <div class="alert alert-danger">{{ saveError() }}</div>
-          }
-
-          <button type="submit" class="btn btn-primary" [disabled]="saving()">
-            @if (saving()) {
-              Guardando...
-            } @else if (personaForm.controls.idPersona.value) {
-              Actualizar
-            } @else {
-              Guardar
-            }
-          </button>
-        </form>
-      </div>
-    </div>
-    <div class="accordion-item">
-      <h2 class="accordion-header" id="flush-headingTwo">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseTwo" aria-expanded="false" aria-controls="flush-collapseTwo">
-          Datos domicilio y contacto
-        </button>
-      </h2>
-      <div id="flush-collapseTwo" class="accordion-collapse collapse" aria-labelledby="flush-headingTwo" data-bs-parent="#accordionFlushExample">
-      </div>
-    </div>
-  </div>
-</div>
+  @if (activeTab() === 'persona') {
+    <app-register-person />
+  }

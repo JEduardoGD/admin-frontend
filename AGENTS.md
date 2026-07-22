@@ -12,7 +12,7 @@ npx prettier --write . # fix formatting
 npx ng generate component <name>  # scaffolding — see File-naming quirk below
 ```
 
-No lint or e2e scripts are configured (README mentions `ng e2e` but angular.json has no e2e builder).
+No lint or e2e scripts are configured.
 
 ## Architecture
 
@@ -25,6 +25,7 @@ No lint or e2e scripts are configured (README mentions `ng e2e` but angular.json
 - **`inject()`** (functional DI) is used everywhere, not constructor injection
 - Forms use **Reactive Forms** (`FormBuilder.nonNullable.group`), see `src/app/register/register.ts`
 - **SweetAlert2** (`sweetalert2`) is a dependency — use for confirmation dialogs, not Angular Material or Bootstrap modals
+- Import convention: `import Swal from 'sweetalert2'` (lowercase `Swal`), called as `Swal.fire({...})`
 
 ## Auth & backend
 
