@@ -1,4 +1,4 @@
-import { Component, inject, input, signal, effect } from '@angular/core';
+import { Component, inject, input, signal, effect, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import Swal from 'sweetalert2';
 import { DomicilioService, Domicilio } from './domicilio.service';
@@ -30,17 +30,20 @@ export class RegisterDomicilio {
   });
 
   constructor() {
+    console.log('register-domicilio constructor')
     effect(() => {
-      const personaId = this.idPersona();
-      if (personaId) {
-        this.loadDomicilio(personaId);
+      const idPersona = this.idPersona();
+      if (idPersona) {
+        this.loadDomicilio(idPersona);
       }
     });
   }
 
   private loadDomicilio(idPersona: number): void {
+    console.log(`loadDomicilio idPersona: ${idPersona}`)
     this.domicilioService.findByIdPersona(idPersona).subscribe({
       next: (domicilios) => {
+        console.log(`loadDomicilio domicilios: ${domicilios}`)
         if (domicilios && domicilios.length > 0) {
           const dom = domicilios[0];
           this.domicilioForm.patchValue({

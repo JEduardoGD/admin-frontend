@@ -12,7 +12,7 @@
   </ul>
 
   @if (activeTab() === 'persona') {
-      <app-register-person (personaSaved)="onPersonaSaved($event)" />
+      <app-register-person  [idPersona]="idPersona()!" (personaSaved)="onPersonaSaved($event)" />
   }
 
   @if (activeTab() === 'domicilio') {

@@ -29,6 +29,10 @@ export class PersonaService {
     return this.api.post<Persona>('persona/update', persona);
   }
 
+  findById(id: number): Observable<Persona> {
+    return this.api.get<Persona>(`persona/${id}`);
+  }
+
   search(criteria: PersonaSearchCriteria): Observable<Array<Persona>> {
     const params: Record<string, string> = {};
     if (criteria.nombre) params['nombre'] = criteria.nombre;

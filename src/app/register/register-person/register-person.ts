@@ -1,4 +1,4 @@
-import { Component, inject, signal, output } from '@angular/core';
+import { Component, inject, signal, output, effect, input } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import Swal from 'sweetalert2';
 import { PersonaService, Persona } from './persona.service';
@@ -19,6 +19,8 @@ export class RegisterPerson {
   readonly saveSuccess = signal(false);
   readonly saveError = signal<string | null>(null);
 
+  readonly idPersona = input.required<number>();
+
   readonly personaForm = this.fb.nonNullable.group({
     idPersona: [''],
     nombre: ['', [Validators.required, Validators.maxLength(250)]],
@@ -26,6 +28,31 @@ export class RegisterPerson {
     segundoApellido: ['', [Validators.maxLength(250)]],
     fecNac: [''],
   });
+
+  constructor() {
+    effect(() => {
+      const personaId = this.idPersona();
+      if (personaId) {
+        this.loadPersona(personaId);
+      }
+    });
+  }
+
+  private loadPersona(idPersona: number): void {
+    console.log(`on loadPersona with idPersona: ${idPersona}`)
+    this.personaService.findById(idPersona).subscribe({
+      next: (persona) => {
+        console.log(`on loadPersona with persona: ${persona}`)
+        this.personaForm.patchValue({
+          idPersona: persona.idPersona?.toString() ?? '',
+          nombre: persona.nombre,
+          primerApellido: persona.primerApellido,
+          segundoApellido: persona.segundoApellido ?? '',
+          fecNac: persona.fecNac ?? '',
+        });
+      },
+    });
+  }
 
   onSubmit(): void {
     if (this.personaForm.invalid) {
