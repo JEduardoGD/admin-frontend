@@ -13,9 +13,6 @@ export class Register {
   readonly idPersona = signal<number | null>(null);
 
   selectTab(tab: string): void {
-    console.log('----selectTab----')
-    console.log(`activeTab: ${tab}`)
-    console.log(`idPersona:  ${this.idPersona}`)
     this.activeTab.set(tab);
   }
 

@@ -30,7 +30,6 @@ export class RegisterDomicilio {
   });
 
   constructor() {
-    console.log('register-domicilio constructor')
     effect(() => {
       const idPersona = this.idPersona();
       if (idPersona) {
@@ -40,10 +39,8 @@ export class RegisterDomicilio {
   }
 
   private loadDomicilio(idPersona: number): void {
-    console.log(`loadDomicilio idPersona: ${idPersona}`)
     this.domicilioService.findByIdPersona(idPersona).subscribe({
       next: (domicilios) => {
-        console.log(`loadDomicilio domicilios: ${domicilios}`)
         if (domicilios && domicilios.length > 0) {
           const dom = domicilios[0];
           this.domicilioForm.patchValue({

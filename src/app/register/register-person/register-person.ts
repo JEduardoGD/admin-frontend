@@ -39,10 +39,8 @@ export class RegisterPerson {
   }
 
   private loadPersona(idPersona: number): void {
-    console.log(`on loadPersona with idPersona: ${idPersona}`)
     this.personaService.findById(idPersona).subscribe({
       next: (persona) => {
-        console.log(`on loadPersona with persona: ${persona}`)
         this.personaForm.patchValue({
           idPersona: persona.idPersona?.toString() ?? '',
           nombre: persona.nombre,
