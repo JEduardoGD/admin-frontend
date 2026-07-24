@@ -1,4 +1,5 @@
 import { Component, inject, signal, output, effect, input } from '@angular/core';
+import { formatDate } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import Swal from 'sweetalert2';
 import { PersonaService, Persona } from './persona.service';
@@ -46,7 +47,7 @@ export class RegisterPerson {
           nombre: persona.nombre,
           primerApellido: persona.primerApellido,
           segundoApellido: persona.segundoApellido ?? '',
-          fecNac: persona.fecNac ?? '',
+          fecNac: persona.fecNac ? formatDate(persona.fecNac, 'yyyy-MM-dd', 'en-US') : '',
         });
       },
     });
@@ -125,7 +126,7 @@ export class RegisterPerson {
           nombre: saved.nombre,
           primerApellido: saved.primerApellido,
           segundoApellido: saved.segundoApellido ?? '',
-          fecNac: saved.fecNac ?? '',
+          fecNac: persona.fecNac ? formatDate(persona.fecNac, 'yyyy-MM-dd', 'en-US') : '',
         });
         if (saved.idPersona) {
           this.personaSaved.emit(saved.idPersona);
