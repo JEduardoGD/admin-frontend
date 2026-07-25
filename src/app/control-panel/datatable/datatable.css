@@ -1,0 +1,16 @@
+.datatable-container {
+  margin: 0 auto;
+}
+
+.dt-name-link {
+  text-decoration: none;
+  color: #0d6efd;
+}
+
+.dt-name-link:hover {
+  text-decoration: underline;
+}
+
+.dt-action-view {
+  cursor: pointer;
+}
