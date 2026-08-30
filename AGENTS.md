@@ -3,10 +3,11 @@
 ## Commands
 
 ```bash
-npm start              # dev server on http://localhost:4200
+npm start              # generate-env + dev server on http://localhost:4200
 npm test               # run Vitest unit tests (via ng test)
-npm run build          # production build to dist/
-npm run watch          # dev build with watch mode
+npm run build          # generate-env + production build to dist/
+npm run watch          # generate-env + dev build with watch mode
+npm run generate-env   # regenerate src/environments/environment.ts from .env
 npx prettier --check . # check formatting
 npx prettier --write . # fix formatting
 npx ng generate component <name>  # scaffolding — see File-naming quirk below
@@ -18,32 +19,72 @@ No lint or e2e scripts are configured.
 
 - Angular 21, standalone components only (no NgModules)
 - Entrypoint: `src/main.ts` bootstraps `App` from `src/app/app.ts` using `appConfig` from `src/app/app.config.ts`
-- Routes defined in `src/app/app.routes.ts`; `/admin` uses `AdminLayout` (header/footer + router outlet), guarded by `authGuard`, with children like `ControlPanel` and `Register`
-- Global styles: `src/styles.css` (plain CSS, not SCSS)
-- **Bootstrap 5** is imported in `src/styles.css` — CSS classes and utilities are available everywhere
-- **Angular Signals** (`signal()`) are used for component-local reactive state; **RxJS Observables** still drive HTTP (via `ApiService`) and auth events (via `OidcSecurityService`)
+- `App` is a thin shell (`<router-outlet />` only). Authenticated chrome lives in `AdminLayout`
+- Global styles: `src/styles.css` (plain CSS, not SCSS). **Bootstrap 5 CSS** is imported there; Bootstrap JS is loaded from CDN in `src/index.html`
+- **Angular Signals** (`signal()`, `computed()`, `input()`, `output()`, `effect()`) are used for component state and parent/child communication
+- **RxJS Observables** still drive HTTP (via `ApiService` and feature services)
 - **`inject()`** (functional DI) is used everywhere, not constructor injection
-- Forms use **Reactive Forms** (`FormBuilder.nonNullable.group`), see `src/app/register/register.ts`
-- **SweetAlert2** (`sweetalert2`) is a dependency — use for confirmation dialogs, not Angular Material or Bootstrap modals
+- Forms use **Reactive Forms** (`FormBuilder.nonNullable.group`) in the tab child components, not in `Register` itself
+- **SweetAlert2** (`sweetalert2`) is used for confirmation and session-expired dialogs, not Angular Material or Bootstrap modals
 - Import convention: `import Swal from 'sweetalert2'` (lowercase `Swal`), called as `Swal.fire({...})`
+- User-facing copy (labels, alerts, SweetAlert text) is in **Spanish**
+
+## Routes
+
+Defined in `src/app/app.routes.ts`:
+
+| Path              | Component     | Guard       | Notes                                      |
+| ----------------- | ------------- | ----------- | ------------------------------------------ |
+| `/`               | `LandingPage` | —           | Public home; login or link to `/admin`     |
+| `/admin`          | `AdminLayout` | `authGuard` | Header + footer + child `router-outlet`    |
+| `/admin` (child)  | `ControlPanel`| inherited   | Default authenticated view                 |
+| `/admin/register` | `Register`    | inherited   | Persona + domicilio registration tabs      |
+
+`authGuard` (`src/app/auth/auth.guard.ts`) is a functional `CanActivateFn`. If `AuthService.isAuthenticated()` is false it calls `login()` and returns `false`.
+
+## Register flow
+
+`Register` (`src/app/register/register.ts`) is a tab orchestrator. It does **not** own the forms.
+
+- Tabs: `persona` (default) and `domicilio`, stored in `activeTab` signal
+- After a persona is saved, `idPersona` is stored; the domicilio tab is blocked until then
+- `RegisterPerson` (`src/app/register/register-person/`): create/update persona, duplicate check via `PersonaService.search` + SweetAlert, emits `personaSaved`
+- `RegisterDomicilio` (`src/app/register/register-domicilio/`): create/update domicilio for the current `idPersona`
+- Child components use `input.required()` / `output()` and load existing records with `effect()`
+- Dates are formatted with `formatDate(..., 'yyyy-MM-dd', 'en-US')` for `<input type="date">`
 
 ## Auth & backend
 
-- OIDC auth via `angular-auth-oidc-client` (AWS Cognito); config in `src/app/auth/auth.config.ts`, wrapper `AuthService` in `src/app/auth/auth.service.ts`, route guard in `src/app/auth/auth.guard.ts`
-- HTTP: `provideHttpClient(withInterceptors([authInterceptor()]))` in `app.config.ts` — the Bearer token is attached automatically for URLs listed in `secureRoutes` (the API base URL)
-- Base API client: `src/app/core/api.service.ts` (`ApiService` with typed `get/post/put/delete` prefixed with `environment.api.baseUrl`); feature services should inject it
+- OIDC via `angular-auth-oidc-client` (AWS Cognito)
+  - Config: `src/app/auth/auth.config.ts` (`provideAuth` + `withAppInitializerAuthCheck()`)
+  - Wrapper: `AuthService` in `src/app/auth/auth.service.ts` — `isAuthenticated` is a `computed()` over `OidcSecurityService.authenticated()`
+  - Guard: `src/app/auth/auth.guard.ts`
+- HTTP: `provideHttpClient(withInterceptors([authInterceptor()]))` in `app.config.ts` — Bearer token is attached automatically for URLs in `secureRoutes` (the API base URL)
+- Base API client: `src/app/core/api.service.ts` (`ApiService` with typed `get/post/put/delete` prefixed with `environment.api.baseUrl`)
+- Feature services inject `ApiService` and must **not** call `HttpClient` directly
+
+## HTTP & error handling
+
+- `ErrorHandlerService` (`src/app/core/error-handler.service.ts`): on HTTP 401, shows a SweetAlert (“Sesión expirada”) and navigates to `/`
+- Feature services pipe HTTP calls with `catchError((err) => this.errorHandler.handleUnauthorized(err))`
+- Backend **updates use POST** to `resource/update`, not HTTP PUT. Follow existing services:
+
+| Service           | Create            | Update                   | Read                                      |
+| ----------------- | ----------------- | ------------------------ | ----------------------------------------- |
+| `PersonaService`  | `POST persona`    | `POST persona/update`    | `GET persona/:id`, `GET persona` (search) |
+| `DomicilioService`| `POST domicilio`  | `POST domicilio/update`  | `GET domicilio/find_by/idpersona/:id`     |
 
 ## Environment config
 
 - All runtime parameters live in `.env` (gitignored): `AUTH_AUTHORITY`, `AUTH_REDIRECT_URL`, `AUTH_CLIENT_ID`, `AUTH_SCOPE`, `API_BASE_URL`
-- `npm run generate-env` (runs automatically via `prestart`/`prebuild`) executes `scripts/generate-env.mjs`, which generates `src/environments/environment.ts` (also gitignored — never edit it manually)
-- Adding a new env var: add it to `.env` AND to the template in `scripts/generate-env.mjs`
+- `npm run generate-env` (also `prestart`/`prebuild`, and the `watch` script) runs `scripts/generate-env.mjs`, which generates `src/environments/environment.ts` (also gitignored — never edit it manually)
+- Adding a new env var: add it to `.env` **and** to the template in `scripts/generate-env.mjs`
 
 ## File-naming quirk
 
 Components use `<name>.ts` / `<name>.html` / `<name>.css` — **not** `<name>.component.ts`. The root component class is `App` (not `AppComponent`), in `src/app/app.ts`.
 
-**Gotcha:** `ng generate component` produces `.component.ts` files by default. Either rename the generated files to match the `<name>.ts` convention, or configure `schematics` in `angular.json` to skip the `.component` suffix.
+**Gotcha:** `ng generate component` produces `.component.ts` files by default (`angular.json` schematics are empty). Either rename the generated files to match the `<name>.ts` convention, or configure schematics in `angular.json` to skip the `.component` suffix.
 
 ## Testing (Vitest)
 
