@@ -1,0 +1,108 @@
+<div class="mt-3">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <p class="mb-0 text-muted">
+      Sube una imagen, revisa la vista previa y selecciona su tipo para guardarla.
+    </p>
+    <label class="btn btn-primary mb-0" [class.disabled]="loading()">
+      Agregar imagen
+      <input
+        type="file"
+        accept="image/*"
+        class="d-none"
+        [disabled]="loading()"
+        (change)="onAddFile($event)"
+      />
+    </label>
+  </div>
+
+  @if (tiposError()) {
+    <div class="alert alert-danger">{{ tiposError() }}</div>
+  }
+  @if (loadError()) {
+    <div class="alert alert-danger">{{ loadError() }}</div>
+  }
+
+  @if (loading()) {
+    <p class="text-muted">Cargando imágenes...</p>
+  } @else if (images().length === 0) {
+    <div class="alert alert-info">Esta persona aún no tiene imágenes.</div>
+  } @else {
+    <div class="row g-3">
+      @for (card of images(); track card.localId) {
+        <div class="col-12 col-sm-6 col-lg-4">
+          <div class="card h-100">
+            <div class="card-body">
+              <div class="imagen-thumb-wrap mb-3">
+                @if (card.thumbnailUrl) {
+                  <img
+                    [src]="card.thumbnailUrl"
+                    alt="Vista previa de imagen"
+                    class="imagen-thumb"
+                  />
+                } @else if (card.uploading) {
+                  <div class="imagen-thumb-placeholder text-muted">Subiendo...</div>
+                } @else {
+                  <div class="imagen-thumb-placeholder text-muted">Sin vista previa</div>
+                }
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" [attr.for]="'tipo-' + card.localId"
+                  >Tipo de imagen *</label
+                >
+                <select
+                  class="form-select"
+                  [id]="'tipo-' + card.localId"
+                  [disabled]="!card.uuid || card.uploading || card.saving"
+                  [value]="card.idTipoImagenDocumento ?? ''"
+                  (change)="onTypeChange(card.localId, $event)"
+                >
+                  <option value="" disabled>Selecciona el tipo de imagen</option>
+                  @for (tipo of tipos(); track tipo.idTipoImagen) {
+                    <option [selected]="tipo.idTipoImagen === card.idTipoImagenDocumento" [value]="tipo.idTipoImagen">{{ tipo.tipo }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="d-flex flex-wrap gap-2">
+                <label
+                  class="btn btn-outline-secondary btn-sm mb-0"
+                  [class.disabled]="card.uploading || card.saving"
+                >
+                  Reemplazar archivo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    class="d-none"
+                    [disabled]="card.uploading || card.saving"
+                    (change)="onReplaceFile(card.localId, $event)"
+                  />
+                </label>
+                @if (card.idImagen === undefined) {
+                  <button
+                    type="button"
+                    class="btn btn-outline-danger btn-sm"
+                    [disabled]="card.saving"
+                    (click)="onDiscardDraft(card.localId)"
+                  >
+                    Descartar
+                  </button>
+                }
+              </div>
+
+              @if (card.saving) {
+                <p class="small text-muted mt-2 mb-0">Guardando...</p>
+              }
+              @if (card.saveSuccess) {
+                <div class="alert alert-success mt-2 mb-0 py-2">Imagen guardada correctamente.</div>
+              }
+              @if (card.error) {
+                <div class="alert alert-danger mt-2 mb-0 py-2">{{ card.error }}</div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

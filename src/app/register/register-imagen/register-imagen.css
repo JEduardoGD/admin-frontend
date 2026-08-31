@@ -1,0 +1,23 @@
+.imagen-thumb-wrap {
+  width: 128px;
+  height: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.imagen-thumb {
+  max-width: 128px;
+  max-height: 128px;
+  object-fit: contain;
+}
+
+.imagen-thumb-placeholder {
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 0.5rem;
+}
