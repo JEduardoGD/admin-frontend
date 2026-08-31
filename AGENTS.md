@@ -33,12 +33,12 @@ No lint or e2e scripts are configured.
 
 Defined in `src/app/app.routes.ts`:
 
-| Path              | Component     | Guard       | Notes                                      |
-| ----------------- | ------------- | ----------- | ------------------------------------------ |
-| `/`               | `LandingPage` | —           | Public home; login or link to `/admin`     |
-| `/admin`          | `AdminLayout` | `authGuard` | Header + footer + child `router-outlet`    |
-| `/admin` (child)  | `ControlPanel`| inherited   | Default authenticated view                 |
-| `/admin/register` | `Register`    | inherited   | Persona + domicilio registration tabs      |
+| Path              | Component      | Guard       | Notes                                   |
+| ----------------- | -------------- | ----------- | --------------------------------------- |
+| `/`               | `LandingPage`  | —           | Public home; login or link to `/admin`  |
+| `/admin`          | `AdminLayout`  | `authGuard` | Header + footer + child `router-outlet` |
+| `/admin` (child)  | `ControlPanel` | inherited   | Default authenticated view              |
+| `/admin/register` | `Register`     | inherited   | Persona + domicilio + imágenes tabs     |
 
 `authGuard` (`src/app/auth/auth.guard.ts`) is a functional `CanActivateFn`. If `AuthService.isAuthenticated()` is false it calls `login()` and returns `false`.
 
@@ -46,10 +46,11 @@ Defined in `src/app/app.routes.ts`:
 
 `Register` (`src/app/register/register.ts`) is a tab orchestrator. It does **not** own the forms.
 
-- Tabs: `persona` (default) and `domicilio`, stored in `activeTab` signal
-- After a persona is saved, `idPersona` is stored; the domicilio tab is blocked until then
+- Tabs: `persona` (default), `domicilio`, and `imagen`, stored in `activeTab` signal
+- After a persona is saved, `idPersona` is stored; the domicilio and imágenes tabs are blocked until then
 - `RegisterPerson` (`src/app/register/register-person/`): create/update persona, duplicate check via `PersonaService.search` + SweetAlert, emits `personaSaved`
 - `RegisterDomicilio` (`src/app/register/register-domicilio/`): create/update domicilio for the current `idPersona`
+- `RegisterImagen` (`src/app/register/register-imagen/`): 0-N images per persona. Upload file (`POST file`) → thumbnail (`GET imagen/thumbnail/{uuid}`) → select type (`GET static_catalog/tipo_imagen`) → create (`POST imagen`) or update (`POST imagen/update`). Same type may repeat. No delete of saved images; unsaved drafts can be discarded in the UI. Replacing a saved file persists immediately.
 - Child components use `input.required()` / `output()` and load existing records with `effect()`
 - Dates are formatted with `formatDate(..., 'yyyy-MM-dd', 'en-US')` for `<input type="date">`
 
@@ -60,7 +61,7 @@ Defined in `src/app/app.routes.ts`:
   - Wrapper: `AuthService` in `src/app/auth/auth.service.ts` — `isAuthenticated` is a `computed()` over `OidcSecurityService.authenticated()`
   - Guard: `src/app/auth/auth.guard.ts`
 - HTTP: `provideHttpClient(withInterceptors([authInterceptor()]))` in `app.config.ts` — Bearer token is attached automatically for URLs in `secureRoutes` (the API base URL)
-- Base API client: `src/app/core/api.service.ts` (`ApiService` with typed `get/post/put/delete` prefixed with `environment.api.baseUrl`)
+- Base API client: `src/app/core/api.service.ts` (`ApiService` with typed `get/post/put/delete`, plus `postForm` for `FormData` and `getBlob` for binary, prefixed with `environment.api.baseUrl`)
 - Feature services inject `ApiService` and must **not** call `HttpClient` directly
 
 ## HTTP & error handling
@@ -69,10 +70,13 @@ Defined in `src/app/app.routes.ts`:
 - Feature services pipe HTTP calls with `catchError((err) => this.errorHandler.handleUnauthorized(err))`
 - Backend **updates use POST** to `resource/update`, not HTTP PUT. Follow existing services:
 
-| Service           | Create            | Update                   | Read                                      |
-| ----------------- | ----------------- | ------------------------ | ----------------------------------------- |
-| `PersonaService`  | `POST persona`    | `POST persona/update`    | `GET persona/:id`, `GET persona` (search) |
-| `DomicilioService`| `POST domicilio`  | `POST domicilio/update`  | `GET domicilio/find_by/idpersona/:id`     |
+| Service            | Create           | Update                  | Read                                                                                                                                                                                      |
+| ------------------ | ---------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PersonaService`   | `POST persona`   | `POST persona/update`   | `GET persona/:id`, `GET persona` (search)                                                                                                                                                 |
+| `DomicilioService` | `POST domicilio` | `POST domicilio/update` | `GET domicilio/find_by/idpersona/:id`                                                                                                                                                     |
+| `ImagenService`    | `POST imagen`    | `POST imagen/update`    | `GET imagen/find_by/idpersona/:id`, `GET imagen/thumbnail/:uuid` (blob), `POST file` (multipart field `file` → `{ filename, uploadError, frontError }`), `GET static_catalog/tipo_imagen` |
+
+`Imagen` body: `{ idImagen?, idPersona, uuid, idTipoImagenDocumento }`. Catalog items use `idTipoImagen`; map that to `idTipoImagenDocumento` on save. `UploadResult.filename` is the stored uuid (with extension). `POST file` returns HTTP 200 even when `uploadError` is true — check the body.
 
 ## Environment config
 
