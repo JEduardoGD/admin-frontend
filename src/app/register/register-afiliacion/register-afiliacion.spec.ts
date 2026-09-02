@@ -13,7 +13,8 @@ vi.mock('sweetalert2', () => ({
 describe('RegisterAfiliacion', () => {
   let fixture: ComponentFixture<RegisterAfiliacion>;
   let afiliacionService: {
-    save: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
     findByIdPersona: ReturnType<typeof vi.fn>;
   };
 
@@ -31,7 +32,8 @@ describe('RegisterAfiliacion', () => {
     overrides?: Partial<typeof afiliacionService>,
   ): Promise<void> {
     afiliacionService = {
-      save: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
       findByIdPersona: vi.fn(() => of([])),
       ...overrides,
     };
@@ -131,7 +133,7 @@ describe('RegisterAfiliacion', () => {
       deleted: false,
     };
     await createComponent(42, {
-      save: vi.fn(() => of(saved)),
+      create: vi.fn(() => of(saved)),
       findByIdPersona: vi
         .fn()
         .mockReturnValueOnce(of([]))
@@ -143,13 +145,14 @@ describe('RegisterAfiliacion', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(afiliacionService.save).toHaveBeenCalledWith({
+    expect(afiliacionService.create).toHaveBeenCalledWith({
       idPersona: 42,
       fechaInicio: todayIso(),
       fechaFin: plusYearsIso(1),
       vitalicia: false,
       deleted: false,
     });
+    expect(afiliacionService.update).not.toHaveBeenCalled();
     expect(fixture.nativeElement.textContent).toContain('Afiliación guardada correctamente.');
     expect(fixture.nativeElement.textContent).toContain(todayIso());
     expect(fixture.nativeElement.textContent).toContain(plusYearsIso(1));
@@ -158,7 +161,7 @@ describe('RegisterAfiliacion', () => {
 
   it('sends null fechaFin when saving a vitalicia afiliacion', async () => {
     await createComponent(42, {
-      save: vi.fn(() =>
+      create: vi.fn(() =>
         of({
           idAfiliacion: 3,
           idPersona: 42,
@@ -179,19 +182,20 @@ describe('RegisterAfiliacion', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(afiliacionService.save).toHaveBeenCalledWith({
+    expect(afiliacionService.create).toHaveBeenCalledWith({
       idPersona: 42,
       fechaInicio: todayIso(),
       fechaFin: null,
       vitalicia: true,
       deleted: false,
     });
+    expect(afiliacionService.update).not.toHaveBeenCalled();
   });
 
   it('loads a row into the form and updates it with idAfiliacion', async () => {
     await createComponent(42, {
       findByIdPersona: vi.fn(() => of([existing])),
-      save: vi.fn(() => of({ ...existing, fechaFin: '2028-01-10' })),
+      update: vi.fn(() => of({ ...existing, fechaFin: '2028-01-10' })),
     });
 
     const edit = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
@@ -215,7 +219,7 @@ describe('RegisterAfiliacion', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(afiliacionService.save).toHaveBeenCalledWith({
+    expect(afiliacionService.update).toHaveBeenCalledWith({
       idAfiliacion: 9,
       idPersona: 42,
       fechaInicio: '2026-01-10',
@@ -223,6 +227,7 @@ describe('RegisterAfiliacion', () => {
       vitalicia: false,
       deleted: false,
     });
+    expect(afiliacionService.create).not.toHaveBeenCalled();
   });
 
   it('renders deleted rows with a distinct background and without edit or delete actions', async () => {
@@ -254,7 +259,7 @@ describe('RegisterAfiliacion', () => {
   it('confirms before logically deleting a row', async () => {
     await createComponent(42, {
       findByIdPersona: vi.fn(() => of([existing])),
-      save: vi.fn(() => of({ ...existing, deleted: true })),
+      update: vi.fn(() => of({ ...existing, deleted: true })),
     });
 
     const remove = Array.from(
@@ -265,7 +270,7 @@ describe('RegisterAfiliacion', () => {
     fixture.detectChanges();
 
     expect(Swal.fire).toHaveBeenCalled();
-    expect(afiliacionService.save).toHaveBeenCalledWith({
+    expect(afiliacionService.update).toHaveBeenCalledWith({
       idAfiliacion: 9,
       idPersona: 42,
       fechaInicio: '2026-01-10',
@@ -273,6 +278,7 @@ describe('RegisterAfiliacion', () => {
       vitalicia: false,
       deleted: true,
     });
+    expect(afiliacionService.create).not.toHaveBeenCalled();
   });
 
   it('does not delete when the confirmation is cancelled', async () => {
@@ -293,7 +299,8 @@ describe('RegisterAfiliacion', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(afiliacionService.save).not.toHaveBeenCalled();
+    expect(afiliacionService.update).not.toHaveBeenCalled();
+    expect(afiliacionService.create).not.toHaveBeenCalled();
   });
 
   it('shows an error when afiliaciones cannot be loaded', async () => {
@@ -306,7 +313,7 @@ describe('RegisterAfiliacion', () => {
 
   it('shows an error when saving fails', async () => {
     await createComponent(42, {
-      save: vi.fn(() => throwError(() => new Error('fail'))),
+      create: vi.fn(() => throwError(() => new Error('fail'))),
     });
 
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(

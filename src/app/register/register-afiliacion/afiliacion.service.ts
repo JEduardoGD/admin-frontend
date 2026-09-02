@@ -17,9 +17,15 @@ export class AfiliacionService {
   private readonly api = inject(ApiService);
   private readonly errorHandler = inject(ErrorHandlerService);
 
-  save(afiliacion: Afiliacion): Observable<Afiliacion> {
+  create(afiliacion: Afiliacion): Observable<Afiliacion> {
     return this.api
       .post<Afiliacion>('afiliacion', afiliacion)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
+  }
+
+  update(afiliacion: Afiliacion): Observable<Afiliacion> {
+    return this.api
+      .put<Afiliacion>('afiliacion', afiliacion)
       .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 

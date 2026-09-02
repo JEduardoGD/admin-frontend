@@ -106,7 +106,11 @@ export class RegisterAfiliacion {
     this.saveSuccess.set(false);
     this.saveError.set(null);
 
-    this.afiliacionService.save(payload).subscribe({
+    const request = payload.idAfiliacion
+      ? this.afiliacionService.update(payload)
+      : this.afiliacionService.create(payload);
+
+    request.subscribe({
       next: () => {
         this.saving.set(false);
         this.saveSuccess.set(true);
@@ -190,7 +194,7 @@ export class RegisterAfiliacion {
       deleted: true,
     };
 
-    this.afiliacionService.save(payload).subscribe({
+    this.afiliacionService.update(payload).subscribe({
       next: () => {
         this.deletingId.set(null);
         if (this.editingId() === idAfiliacion) {
