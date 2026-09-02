@@ -1,0 +1,136 @@
+<div class="mt-3">
+  <form [formGroup]="afiliacionForm" (ngSubmit)="onSubmit()" class="afiliacion-form">
+    <div class="mb-3">
+      <label for="fechaInicio" class="form-label">Fecha de inicio *</label>
+      <input
+        id="fechaInicio"
+        type="date"
+        class="form-control"
+        formControlName="fechaInicio"
+        [class.is-invalid]="
+          (afiliacionForm.controls.fechaInicio.invalid &&
+            afiliacionForm.controls.fechaInicio.touched) ||
+          (afiliacionForm.errors?.['fechaOrder'] && afiliacionForm.touched)
+        "
+      />
+      @if (
+        afiliacionForm.controls.fechaInicio.invalid && afiliacionForm.controls.fechaInicio.touched
+      ) {
+        <div class="invalid-feedback">La fecha de inicio es obligatoria.</div>
+      }
+    </div>
+
+    <div class="mb-3">
+      <label for="fechaFin" class="form-label">Fecha de fin</label>
+      <input
+        id="fechaFin"
+        type="date"
+        class="form-control"
+        formControlName="fechaFin"
+        [class.is-invalid]="
+          afiliacionForm.touched &&
+          (afiliacionForm.errors?.['fechaOrder'] || afiliacionForm.errors?.['fechaFinRequired'])
+        "
+      />
+      @if (afiliacionForm.touched && afiliacionForm.errors?.['fechaOrder']) {
+        <div class="invalid-feedback d-block">
+          La fecha de inicio debe ser anterior a la fecha de fin.
+        </div>
+      }
+      @if (afiliacionForm.touched && afiliacionForm.errors?.['fechaFinRequired']) {
+        <div class="invalid-feedback d-block">
+          La fecha de fin es requerida si la afiliación no es vitalicia.
+        </div>
+      }
+    </div>
+
+    <div class="form-check mb-3">
+      <input id="vitalicia" class="form-check-input" type="checkbox" formControlName="vitalicia" />
+      <label class="form-check-label" for="vitalicia">Vitalicia</label>
+    </div>
+
+    @if (saveSuccess()) {
+      <div class="alert alert-success">Afiliación guardada correctamente.</div>
+    }
+    @if (saveError()) {
+      <div class="alert alert-danger">{{ saveError() }}</div>
+    }
+
+    <div class="d-flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary" [disabled]="saving()">
+        @if (saving()) {
+          Guardando...
+        } @else if (editingId()) {
+          Actualizar
+        } @else {
+          Guardar
+        }
+      </button>
+      @if (editingId()) {
+        <button type="button" class="btn btn-outline-secondary" (click)="onCancelEdit()">
+          Cancelar
+        </button>
+      }
+    </div>
+  </form>
+
+  <h3 class="h5 mt-4">Afiliaciones</h3>
+
+  @if (loadError()) {
+    <div class="alert alert-danger">{{ loadError() }}</div>
+  }
+
+  @if (loading()) {
+    <p class="text-muted">Cargando afiliaciones...</p>
+  } @else if (afiliaciones().length === 0) {
+    <div class="alert alert-info">Esta persona aún no tiene afiliaciones.</div>
+  } @else {
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle">
+        <thead>
+          <tr>
+            <th>Fecha de inicio</th>
+            <th>Fecha de fin</th>
+            <th>Vitalicia</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (afiliacion of afiliaciones(); track afiliacion.idAfiliacion) {
+            <tr [class.afiliacion-row-deleted]="afiliacion.deleted">
+              <td>{{ afiliacion.fechaInicio }}</td>
+              <td>{{ afiliacion.fechaFin || '—' }}</td>
+              <td>{{ afiliacion.vitalicia ? 'Sí' : 'No' }}</td>
+              <td>
+                @if (!afiliacion.deleted) {
+                  <div class="d-flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary btn-sm"
+                      [disabled]="saving() || deletingId() !== null"
+                      (click)="onEdit(afiliacion)"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger btn-sm"
+                      [disabled]="saving() || deletingId() !== null"
+                      (click)="onDelete(afiliacion)"
+                    >
+                      @if (deletingId() === afiliacion.idAfiliacion) {
+                        Eliminando...
+                      } @else {
+                        Eliminar
+                      }
+                    </button>
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
