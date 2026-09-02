@@ -47,4 +47,29 @@ describe('Register', () => {
     expect(compiled.querySelector('app-register-imagen')).not.toBeNull();
     expect(compiled.textContent).not.toContain('Primero debes guardar los datos de la persona.');
   });
+
+  it('renders the Afiliación tab and blocks it until a persona is saved', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Afiliación');
+
+    const afiliacionTab = Array.from(compiled.querySelectorAll('.nav-link')).find((el) =>
+      el.textContent?.includes('Afiliación'),
+    ) as HTMLAnchorElement;
+    afiliacionTab.click();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Primero debes guardar los datos de la persona.');
+    expect(compiled.querySelector('app-register-afiliacion')).toBeNull();
+  });
+
+  it('shows the afiliacion child once a persona id exists', async () => {
+    fixture.componentInstance.idPersona.set(12);
+    fixture.componentInstance.selectTab('afiliacion');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('app-register-afiliacion')).not.toBeNull();
+    expect(compiled.textContent).not.toContain('Primero debes guardar los datos de la persona.');
+  });
 });

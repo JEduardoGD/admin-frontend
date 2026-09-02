@@ -28,6 +28,15 @@
         >Imágenes</a
       >
     </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'afiliacion'"
+        href="#"
+        (click)="selectTab('afiliacion'); $event.preventDefault()"
+        >Afiliación</a
+      >
+    </li>
   </ul>
 
   @if (activeTab() === 'persona') {
@@ -45,6 +54,14 @@
   @if (activeTab() === 'imagen') {
     @if (idPersona()) {
       <app-register-imagen [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+
+  @if (activeTab() === 'afiliacion') {
+    @if (idPersona()) {
+      <app-register-afiliacion [idPersona]="idPersona()!" />
     } @else {
       <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
     }

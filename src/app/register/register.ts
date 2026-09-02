@@ -3,12 +3,13 @@ import { ActivatedRoute } from '@angular/router';
 import { RegisterPerson } from './register-person/register-person';
 import { RegisterDomicilio } from './register-domicilio/register-domicilio';
 import { RegisterImagen } from './register-imagen/register-imagen';
+import { RegisterAfiliacion } from './register-afiliacion/register-afiliacion';
 
-export type RegisterTab = 'persona' | 'domicilio' | 'imagen';
+export type RegisterTab = 'persona' | 'domicilio' | 'imagen' | 'afiliacion';
 
 @Component({
   selector: 'app-register',
-  imports: [RegisterPerson, RegisterDomicilio, RegisterImagen],
+  imports: [RegisterPerson, RegisterDomicilio, RegisterImagen, RegisterAfiliacion],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
