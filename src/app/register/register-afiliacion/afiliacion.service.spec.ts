@@ -9,12 +9,14 @@ describe('AfiliacionService', () => {
   let api: {
     get: ReturnType<typeof vi.fn>;
     post: ReturnType<typeof vi.fn>;
+    put: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
     api = {
       get: vi.fn(),
       post: vi.fn(),
+      put: vi.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -28,7 +30,7 @@ describe('AfiliacionService', () => {
     service = TestBed.inject(AfiliacionService);
   });
 
-  it('creates or updates an afiliacion with POST afiliacion', () => {
+  it('creates an afiliacion with POST afiliacion', () => {
     const afiliacion: Afiliacion = {
       idPersona: 7,
       fechaInicio: '2026-09-02',
@@ -40,12 +42,32 @@ describe('AfiliacionService', () => {
     api.post.mockReturnValue(of(saved));
 
     let received: Afiliacion | undefined;
-    service.save(afiliacion).subscribe((value) => {
+    service.create(afiliacion).subscribe((value) => {
       received = value;
     });
 
     expect(api.post).toHaveBeenCalledWith('afiliacion', afiliacion);
     expect(received).toEqual(saved);
+  });
+
+  it('updates an afiliacion with PUT afiliacion', () => {
+    const afiliacion: Afiliacion = {
+      idAfiliacion: 15,
+      idPersona: 7,
+      fechaInicio: '2026-09-02',
+      fechaFin: '2027-09-02',
+      vitalicia: false,
+      deleted: false,
+    };
+    api.put.mockReturnValue(of(afiliacion));
+
+    let received: Afiliacion | undefined;
+    service.update(afiliacion).subscribe((value) => {
+      received = value;
+    });
+
+    expect(api.put).toHaveBeenCalledWith('afiliacion', afiliacion);
+    expect(received).toEqual(afiliacion);
   });
 
   it('finds afiliaciones by persona id', () => {
