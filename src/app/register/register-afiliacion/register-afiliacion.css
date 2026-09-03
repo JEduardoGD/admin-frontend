@@ -1,0 +1,7 @@
+.afiliacion-form {
+  max-width: 480px;
+}
+
+.afiliacion-row-deleted > td {
+  background-color: #fde8ea;
+}
