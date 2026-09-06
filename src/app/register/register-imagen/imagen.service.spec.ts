@@ -75,7 +75,7 @@ describe('ImagenService', () => {
     );
   });
 
-  it('lists image types from the static catalog', () => {
+  it('lists persona image types from the static catalog', () => {
     const tipos: TipoImagen[] = [
       {
         idTipoImagen: 1,
@@ -92,7 +92,28 @@ describe('ImagenService', () => {
       received = value;
     });
 
-    expect(api.get).toHaveBeenCalledWith('static_catalog/tipo_imagen');
+    expect(api.get).toHaveBeenCalledWith('static_catalog/tipo_imagen/for_persona');
+    expect(received).toEqual(tipos);
+  });
+
+  it('lists afiliacion image types from the static catalog', () => {
+    const tipos: TipoImagen[] = [
+      {
+        idTipoImagen: 5,
+        tipo: 'PAGO',
+        descripcion: 'Comprobante',
+        fechaInicio: '2026-08-23',
+        fechaFin: null,
+      },
+    ];
+    api.get.mockReturnValue(of(tipos));
+
+    let received: TipoImagen[] | undefined;
+    service.listTiposForAfiliacion().subscribe((value) => {
+      received = value;
+    });
+
+    expect(api.get).toHaveBeenCalledWith('static_catalog/tipo_imagen/for_afiliacion');
     expect(received).toEqual(tipos);
   });
 
@@ -141,5 +162,24 @@ describe('ImagenService', () => {
 
     expect(api.get).toHaveBeenCalledWith('imagen/find_by/idpersona/7');
     expect(received).toEqual(imagenes);
+  });
+
+  it('finds a single image by id', () => {
+    const imagen: Imagen = {
+      idImagen: 3,
+      idPersona: 7,
+      idAfiliacion: 11,
+      uuid: 'abc.jpg',
+      idTipoImagenDocumento: 5,
+    };
+    api.get.mockReturnValue(of(imagen));
+
+    let received: Imagen | undefined;
+    service.findById(3).subscribe((value) => {
+      received = value;
+    });
+
+    expect(api.get).toHaveBeenCalledWith('imagen/find_by/id/3');
+    expect(received).toEqual(imagen);
   });
 });

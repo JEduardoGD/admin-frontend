@@ -1,7 +1,15 @@
-import { Component, inject, input, signal, effect, OnInit } from '@angular/core';
+import { Component, inject, input, signal, effect, ElementRef, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import Swal from 'sweetalert2';
-import { DomicilioService, Domicilio } from './domicilio.service';
+import { Colonia, DomicilioService, Domicilio, Localizacion } from './domicilio.service';
+
+declare global {
+  interface Window {
+    bootstrap?: {
+      Modal: new (element: HTMLElement) => { show(): void; hide(): void };
+    };
+  }
+}
 
 @Component({
   selector: 'app-register-domicilio',
@@ -18,6 +26,12 @@ export class RegisterDomicilio {
   readonly saving = signal(false);
   readonly saveSuccess = signal(false);
   readonly saveError = signal<string | null>(null);
+
+  readonly searchingCp = signal(false);
+  readonly localizacion = signal<Localizacion | null>(null);
+
+  private readonly cpModalEl = viewChild<ElementRef<HTMLElement>>('cpModal');
+  private cpModal?: { show(): void; hide(): void };
 
   readonly domicilioForm = this.fb.nonNullable.group({
     idDomicilio: [''],
@@ -55,6 +69,71 @@ export class RegisterDomicilio {
         }
       },
     });
+  }
+
+  searchByCp(): void {
+    const cp = this.domicilioForm.controls.cp.value.trim();
+    if (!cp) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Código postal requerido',
+        text: 'Captura el código postal antes de buscar.',
+      });
+      return;
+    }
+
+    this.searchingCp.set(true);
+    this.domicilioService.findByCp(cp).subscribe({
+      next: (localizacion) => {
+        this.searchingCp.set(false);
+        if (!localizacion) {
+          Swal.fire({
+            icon: 'info',
+            title: 'Sin resultados',
+            text: 'No se encontró información para ese código postal.',
+          });
+          return;
+        }
+        this.localizacion.set(localizacion);
+        this.openModal();
+      },
+      error: () => {
+        this.searchingCp.set(false);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo consultar la información del código postal. Intenta de nuevo.',
+        });
+      },
+    });
+  }
+
+  useLocalizacion(colonia?: Colonia): void {
+    const loc = this.localizacion();
+    if (!loc) {
+      return;
+    }
+    this.domicilioForm.patchValue({
+      cp: loc.codigo_postal,
+      entidadFederativa: loc.estado,
+      municipio: loc.municipio,
+      ...(colonia ? { localidad: colonia.nombre } : {}),
+      pais: 'México',
+    });
+    this.closeModal();
+  }
+
+  private openModal(): void {
+    const el = this.cpModalEl()?.nativeElement;
+    if (!el || !window.bootstrap) {
+      return;
+    }
+    this.cpModal ??= new window.bootstrap.Modal(el);
+    this.cpModal.show();
+  }
+
+  private closeModal(): void {
+    this.cpModal?.hide();
   }
 
   onSubmit(): void {

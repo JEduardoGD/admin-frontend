@@ -6,6 +6,7 @@ import { ErrorHandlerService } from '../../core/error-handler.service';
 export interface Imagen {
   idImagen?: number;
   idPersona: number;
+  idAfiliacion?: number | null;
   uuid: string;
   idTipoImagenDocumento: number;
 }
@@ -45,7 +46,13 @@ export class ImagenService {
 
   listTipos(): Observable<Array<TipoImagen>> {
     return this.api
-      .get<Array<TipoImagen>>('static_catalog/tipo_imagen')
+      .get<Array<TipoImagen>>('static_catalog/tipo_imagen/for_persona')
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
+  }
+
+  listTiposForAfiliacion(): Observable<Array<TipoImagen>> {
+    return this.api
+      .get<Array<TipoImagen>>('static_catalog/tipo_imagen/for_afiliacion')
       .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 
@@ -64,6 +71,12 @@ export class ImagenService {
   findByIdPersona(idPersona: number): Observable<Array<Imagen>> {
     return this.api
       .get<Array<Imagen>>(`imagen/find_by/idpersona/${idPersona}`)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
+  }
+
+  findById(idImagen: number): Observable<Imagen> {
+    return this.api
+      .get<Imagen>(`imagen/find_by/id/${idImagen}`)
       .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 }

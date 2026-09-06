@@ -59,7 +59,12 @@
                 >
                   <option value="" disabled>Selecciona el tipo de imagen</option>
                   @for (tipo of tipos(); track tipo.idTipoImagen) {
-                    <option [selected]="tipo.idTipoImagen === card.idTipoImagenDocumento" [value]="tipo.idTipoImagen">{{ tipo.tipo }}</option>
+                    <option
+                      [selected]="tipo.idTipoImagen === card.idTipoImagenDocumento"
+                      [value]="tipo.idTipoImagen"
+                    >
+                      {{ tipo.tipo }}
+                    </option>
                   }
                 </select>
               </div>
