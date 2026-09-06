@@ -111,7 +111,9 @@ export class RegisterImagen {
     this.imagenService.findByIdPersona(idPersona).subscribe({
       next: (imagenes) => {
         this.revokeAllThumbnails();
-        const cards = (imagenes ?? []).map((imagen) => this.toCard(imagen));
+        const cards = (imagenes ?? [])
+          .filter((imagen) => imagen.idAfiliacion === null || imagen.idAfiliacion === undefined)
+          .map((imagen) => this.toCard(imagen));
         this.images.set(cards);
         this.loading.set(false);
         for (const card of cards) {

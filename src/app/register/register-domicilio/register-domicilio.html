@@ -1,68 +1,191 @@
 <form [formGroup]="domicilioForm" (ngSubmit)="onSubmit()" class="mt-3" style="max-width: 480px">
   <div class="mb-3">
     <label for="cp" class="form-label">Código Postal</label>
-    <input id="cp" type="text" class="form-control" formControlName="cp"
-      [class.is-invalid]="domicilioForm.controls.cp.invalid && domicilioForm.controls.cp.touched" />
-    @if (domicilioForm.controls.cp.invalid && domicilioForm.controls.cp.touched) {
-    <div class="invalid-feedback">El código postal es requerido.</div>
-    }
+    <div class="input-group has-validation">
+      <input
+        id="cp"
+        type="text"
+        class="form-control"
+        formControlName="cp"
+        [class.is-invalid]="domicilioForm.controls.cp.invalid && domicilioForm.controls.cp.touched"
+      />
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        (click)="searchByCp()"
+        [disabled]="searchingCp()"
+      >
+        @if (searchingCp()) {
+          Buscando...
+        } @else {
+          Buscar
+        }
+      </button>
+      @if (domicilioForm.controls.cp.invalid && domicilioForm.controls.cp.touched) {
+        <div class="invalid-feedback">El código postal es requerido.</div>
+      }
+    </div>
   </div>
 
   <div class="mb-3">
     <label for="domicilio" class="form-label">Domicilio</label>
-    <input id="domicilio" type="text" class="form-control" formControlName="domicilio"
-      [class.is-invalid]="domicilioForm.controls.domicilio.invalid && domicilioForm.controls.domicilio.touched" />
+    <input
+      id="domicilio"
+      type="text"
+      class="form-control"
+      formControlName="domicilio"
+      [class.is-invalid]="
+        domicilioForm.controls.domicilio.invalid && domicilioForm.controls.domicilio.touched
+      "
+    />
     @if (domicilioForm.controls.domicilio.invalid && domicilioForm.controls.domicilio.touched) {
-    <div class="invalid-feedback">El domicilio es requerido.</div>
+      <div class="invalid-feedback">El domicilio es requerido.</div>
     }
   </div>
 
   <div class="mb-3">
     <label for="entidadFederativa" class="form-label">Entidad Federativa</label>
-    <input id="entidadFederativa" type="text" class="form-control" formControlName="entidadFederativa"
-      [class.is-invalid]="domicilioForm.controls.entidadFederativa.invalid && domicilioForm.controls.entidadFederativa.touched" />
-    @if (domicilioForm.controls.entidadFederativa.invalid && domicilioForm.controls.entidadFederativa.touched) {
-    <div class="invalid-feedback">La entidad federativa es requerida.</div>
+    <input
+      id="entidadFederativa"
+      type="text"
+      class="form-control"
+      formControlName="entidadFederativa"
+      [class.is-invalid]="
+        domicilioForm.controls.entidadFederativa.invalid &&
+        domicilioForm.controls.entidadFederativa.touched
+      "
+    />
+    @if (
+      domicilioForm.controls.entidadFederativa.invalid &&
+      domicilioForm.controls.entidadFederativa.touched
+    ) {
+      <div class="invalid-feedback">La entidad federativa es requerida.</div>
     }
   </div>
 
   <div class="mb-3">
     <label for="municipio" class="form-label">Municipio</label>
-    <input id="municipio" type="text" class="form-control" formControlName="municipio"
-      [class.is-invalid]="domicilioForm.controls.municipio.invalid && domicilioForm.controls.municipio.touched" />
+    <input
+      id="municipio"
+      type="text"
+      class="form-control"
+      formControlName="municipio"
+      [class.is-invalid]="
+        domicilioForm.controls.municipio.invalid && domicilioForm.controls.municipio.touched
+      "
+    />
     @if (domicilioForm.controls.municipio.invalid && domicilioForm.controls.municipio.touched) {
-    <div class="invalid-feedback">El municipio es requerido.</div>
+      <div class="invalid-feedback">El municipio es requerido.</div>
     }
   </div>
 
   <div class="mb-3">
     <label for="localidad" class="form-label">Localidad</label>
-    <input id="localidad" type="text" class="form-control" formControlName="localidad"
-      [class.is-invalid]="domicilioForm.controls.localidad.invalid && domicilioForm.controls.localidad.touched" />
+    <input
+      id="localidad"
+      type="text"
+      class="form-control"
+      formControlName="localidad"
+      [class.is-invalid]="
+        domicilioForm.controls.localidad.invalid && domicilioForm.controls.localidad.touched
+      "
+    />
     @if (domicilioForm.controls.localidad.invalid && domicilioForm.controls.localidad.touched) {
-    <div class="invalid-feedback">La localidad es requerida.</div>
+      <div class="invalid-feedback">La localidad es requerida.</div>
     }
   </div>
 
   <div class="mb-3">
     <label for="pais" class="form-label">País</label>
-    <input id="pais" type="text" class="form-control" formControlName="pais"
-      [class.is-invalid]="domicilioForm.controls.pais.invalid && domicilioForm.controls.pais.touched" />
+    <input
+      id="pais"
+      type="text"
+      class="form-control"
+      formControlName="pais"
+      [class.is-invalid]="
+        domicilioForm.controls.pais.invalid && domicilioForm.controls.pais.touched
+      "
+    />
     @if (domicilioForm.controls.pais.invalid && domicilioForm.controls.pais.touched) {
-    <div class="invalid-feedback">El país es requerido.</div>
+      <div class="invalid-feedback">El país es requerido.</div>
     }
   </div>
 
   @if (saveSuccess()) {
-  <div class="alert alert-success">Domicilio guardado correctamente.</div>
+    <div class="alert alert-success">Domicilio guardado correctamente.</div>
   }
   @if (saveError()) {
-  <div class="alert alert-danger">{{ saveError() }}</div>
+    <div class="alert alert-danger">{{ saveError() }}</div>
   }
 
   <button type="submit" class="btn btn-primary" [disabled]="saving()">
-    @if (saving()) { Guardando... }
-    @else if (domicilioForm.controls.idDomicilio.value) { Actualizar }
-    @else { Guardar }
+    @if (saving()) {
+      Guardando...
+    } @else if (domicilioForm.controls.idDomicilio.value) {
+      Actualizar
+    } @else {
+      Guardar
+    }
   </button>
 </form>
+
+<div class="modal fade" #cpModal tabindex="-1" aria-labelledby="cpModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cpModalLabel">Información del código postal</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+      @if (localizacion(); as loc) {
+        <div class="modal-body">
+          <dl class="row mb-3">
+            <dt class="col-sm-4">Estado</dt>
+            <dd class="col-sm-8">{{ loc.estado }}</dd>
+            <dt class="col-sm-4">Municipio</dt>
+            <dd class="col-sm-8">{{ loc.municipio }}</dd>
+            <dt class="col-sm-4">Ciudad</dt>
+            <dd class="col-sm-8">{{ loc.ciudad }}</dd>
+            <dt class="col-sm-4">Zona</dt>
+            <dd class="col-sm-8">{{ loc.zona }}</dd>
+            <dt class="col-sm-4">Código postal</dt>
+            <dd class="col-sm-8">{{ loc.codigo_postal }}</dd>
+          </dl>
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-semibold">Colonias</span>
+            <button type="button" class="btn btn-sm btn-primary" (click)="useLocalizacion()">
+              Usar sin colonia
+            </button>
+          </div>
+
+          @if (loc.colonias && loc.colonias.length > 0) {
+            <ul class="list-group">
+              @for (colonia of loc.colonias; track colonia.nombre) {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <span>{{ colonia.nombre }}</span>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    (click)="useLocalizacion(colonia)"
+                  >
+                    Seleccionar
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="text-muted mb-0">No hay colonias registradas para este código postal.</p>
+          }
+        </div>
+      }
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>

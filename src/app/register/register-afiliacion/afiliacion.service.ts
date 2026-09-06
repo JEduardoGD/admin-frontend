@@ -6,10 +6,11 @@ import { ErrorHandlerService } from '../../core/error-handler.service';
 export interface Afiliacion {
   idAfiliacion?: number;
   idPersona: number;
-  fechaInicio: string;
-  fechaFin: string | null;
+  fechaInicio: string | number;
+  fechaFin: string | number | null;
   vitalicia: boolean;
   deleted: boolean;
+  modifiedAt?: string | number | null;
 }
 
 @Injectable({ providedIn: 'root' })

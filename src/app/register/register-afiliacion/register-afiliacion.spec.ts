@@ -1,8 +1,15 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { EMPTY, of, throwError } from 'rxjs';
 import Swal from 'sweetalert2';
+import { Imagen, ImagenService, TipoImagen } from '../register-imagen/imagen.service';
 import { Afiliacion, AfiliacionService } from './afiliacion.service';
-import { plusYearsIso, RegisterAfiliacion, todayIso } from './register-afiliacion';
+import {
+  ImageSlot,
+  plusYearsIso,
+  RegisterAfiliacion,
+  toApiDateTime,
+  todayIso,
+} from './register-afiliacion';
 
 vi.mock('sweetalert2', () => ({
   default: {
@@ -17,31 +24,83 @@ describe('RegisterAfiliacion', () => {
     update: ReturnType<typeof vi.fn>;
     findByIdPersona: ReturnType<typeof vi.fn>;
   };
+  let imagenService: {
+    listTiposForAfiliacion: ReturnType<typeof vi.fn>;
+    findByIdPersona: ReturnType<typeof vi.fn>;
+    findById: ReturnType<typeof vi.fn>;
+    upload: ReturnType<typeof vi.fn>;
+    getThumbnail: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+
+  const tipos: TipoImagen[] = [
+    { idTipoImagen: 5, tipo: 'PAGO', descripcion: 'Comprobante', fechaInicio: '', fechaFin: null },
+    {
+      idTipoImagen: 6,
+      tipo: 'SOLICITUD',
+      descripcion: 'Solicitud',
+      fechaInicio: '',
+      fechaFin: null,
+    },
+  ];
+
+  const pagoImage: Imagen = {
+    idImagen: 9,
+    idPersona: 42,
+    idAfiliacion: 9,
+    uuid: 'abc.jpg',
+    idTipoImagenDocumento: 5,
+  };
+
+  const solicitudImage: Imagen = {
+    idImagen: 10,
+    idPersona: 42,
+    idAfiliacion: 9,
+    uuid: 'def.jpg',
+    idTipoImagenDocumento: 6,
+  };
 
   const existing: Afiliacion = {
     idAfiliacion: 9,
     idPersona: 42,
-    fechaInicio: '2026-01-10',
-    fechaFin: '2027-01-10',
+    fechaInicio: '2026-01-10T00:00:00.000Z',
+    fechaFin: '2027-01-10T00:00:00.000Z',
     vitalicia: false,
     deleted: false,
   };
 
   async function createComponent(
     idPersona = 42,
-    overrides?: Partial<typeof afiliacionService>,
+    overrides?: {
+      afiliacion?: Partial<typeof afiliacionService>;
+      imagen?: Partial<typeof imagenService>;
+    },
   ): Promise<void> {
     afiliacionService = {
       create: vi.fn(),
       update: vi.fn(),
       findByIdPersona: vi.fn(() => of([])),
-      ...overrides,
+      ...overrides?.afiliacion,
+    };
+    imagenService = {
+      listTiposForAfiliacion: vi.fn(() => of(tipos)),
+      findByIdPersona: vi.fn(() => of([])),
+      findById: vi.fn(() => EMPTY),
+      upload: vi.fn(),
+      getThumbnail: vi.fn(() => EMPTY),
+      create: vi.fn(),
+      update: vi.fn(),
+      ...overrides?.imagen,
     };
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [RegisterAfiliacion],
-      providers: [{ provide: AfiliacionService, useValue: afiliacionService }],
+      providers: [
+        { provide: AfiliacionService, useValue: afiliacionService },
+        { provide: ImagenService, useValue: imagenService },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(RegisterAfiliacion);
@@ -49,6 +108,39 @@ describe('RegisterAfiliacion', () => {
     await fixture.whenStable();
     fixture.detectChanges();
   }
+
+  function fileInputFor(slot: ImageSlot): HTMLInputElement {
+    const id = slot === 'pago' ? 'filePago' : 'fileSolicitud';
+    return fixture.nativeElement.querySelector(`#${id}`) as HTMLInputElement;
+  }
+
+  async function attachImage(slot: ImageSlot, filename = 'imagen.jpg'): Promise<void> {
+    const file = new File(['img'], filename, { type: 'image/jpeg' });
+    const fileInput = fileInputFor(slot);
+    Object.defineProperty(fileInput, 'files', { value: [file] });
+    fileInput.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  function editButton(): HTMLButtonElement {
+    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
+      (el) => el.textContent?.includes('Editar'),
+    ) as HTMLButtonElement;
+  }
+
+  function submitForm(): void {
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit'),
+    );
+  }
+
+  beforeEach(() => {
+    if (typeof URL.createObjectURL !== 'function') {
+      URL.createObjectURL = () => 'blob:mock';
+      URL.revokeObjectURL = () => {};
+    }
+  });
 
   afterEach(() => {
     fixture?.destroy();
@@ -67,7 +159,12 @@ describe('RegisterAfiliacion', () => {
     expect(fechaFin.disabled).toBe(false);
     expect(vitalicia.checked).toBe(false);
     expect(compiled.textContent).toContain('Esta persona aún no tiene afiliaciones.');
+    expect(compiled.querySelector('#filePago')).not.toBeNull();
+    expect(compiled.querySelector('#fileSolicitud')).not.toBeNull();
+    expect(compiled.textContent).toContain('Imagen de pago');
+    expect(compiled.textContent).toContain('Imagen de solicitud');
     expect(afiliacionService.findByIdPersona).toHaveBeenCalledWith(42);
+    expect(imagenService.listTiposForAfiliacion).toHaveBeenCalled();
   });
 
   it('clears and disables fechaFin when vitalicia is checked, and restores today plus one year when unchecked', async () => {
@@ -123,68 +220,154 @@ describe('RegisterAfiliacion', () => {
     );
   });
 
-  it('creates an afiliacion and reloads the table', async () => {
+  it('formats epoch-millisecond dates returned by the API', async () => {
+    await createComponent(42, {
+      afiliacion: {
+        findByIdPersona: vi.fn(() =>
+          of([
+            {
+              idAfiliacion: 9,
+              idPersona: 42,
+              fechaInicio: Date.UTC(2026, 0, 10),
+              fechaFin: Date.UTC(2027, 0, 10),
+              vitalicia: false,
+              deleted: false,
+            },
+          ]),
+        ),
+      },
+    });
+
+    const cells = fixture.nativeElement.querySelectorAll('tbody td');
+    expect(cells[0].textContent).toContain('2026-01-10');
+    expect(cells[1].textContent).toContain('2027-01-10');
+  });
+
+  it('does not save without both the pago and solicitud images', async () => {
+    await createComponent(42, {
+      afiliacion: { create: vi.fn(() => of(existing)) },
+    });
+
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(imagenService.create).not.toHaveBeenCalled();
+    expect(afiliacionService.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Las imágenes de pago y de solicitud son obligatorias.',
+    );
+  });
+
+  it('requires the solicitud image when only the pago image is attached', async () => {
+    await createComponent(42, {
+      imagen: {
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+      },
+    });
+
+    await attachImage('pago', 'pago.jpg');
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(imagenService.create).not.toHaveBeenCalled();
+    expect(afiliacionService.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('La imagen de solicitud es obligatoria.');
+  });
+
+  it('creates the afiliacion first and then both images carrying idAfiliacion', async () => {
     const saved: Afiliacion = {
       idAfiliacion: 21,
       idPersona: 42,
-      fechaInicio: todayIso(),
-      fechaFin: plusYearsIso(1),
+      fechaInicio: toApiDateTime(todayIso()),
+      fechaFin: toApiDateTime(plusYearsIso(1)),
       vitalicia: false,
       deleted: false,
     };
     await createComponent(42, {
-      create: vi.fn(() => of(saved)),
-      findByIdPersona: vi
-        .fn()
-        .mockReturnValueOnce(of([]))
-        .mockReturnValueOnce(of([saved])),
+      afiliacion: {
+        create: vi.fn(() => of(saved)),
+        findByIdPersona: vi
+          .fn()
+          .mockReturnValueOnce(of([]))
+          .mockReturnValueOnce(of([saved])),
+      },
+      imagen: {
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+        create: vi.fn((imagen: Imagen) =>
+          of({ ...imagen, idImagen: imagen.idTipoImagenDocumento === 5 ? 31 : 32 }),
+        ),
+      },
     });
 
-    const form = fixture.nativeElement.querySelector('form') as HTMLFormElement;
-    form.dispatchEvent(new Event('submit'));
+    await attachImage('pago', 'pago.jpg');
+    await attachImage('solicitud', 'solicitud.jpg');
+    submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(afiliacionService.create).toHaveBeenCalledWith({
       idPersona: 42,
-      fechaInicio: todayIso(),
-      fechaFin: plusYearsIso(1),
+      fechaInicio: toApiDateTime(todayIso()),
+      fechaFin: toApiDateTime(plusYearsIso(1)),
       vitalicia: false,
       deleted: false,
     });
+    expect(imagenService.create).toHaveBeenCalledWith({
+      idPersona: 42,
+      idAfiliacion: 21,
+      uuid: 'pago.jpg',
+      idTipoImagenDocumento: 5,
+    });
+    expect(imagenService.create).toHaveBeenCalledWith({
+      idPersona: 42,
+      idAfiliacion: 21,
+      uuid: 'solicitud.jpg',
+      idTipoImagenDocumento: 6,
+    });
     expect(afiliacionService.update).not.toHaveBeenCalled();
     expect(fixture.nativeElement.textContent).toContain('Afiliación guardada correctamente.');
-    expect(fixture.nativeElement.textContent).toContain(todayIso());
-    expect(fixture.nativeElement.textContent).toContain(plusYearsIso(1));
     expect(fixture.nativeElement.textContent).toContain('Editar');
   });
 
   it('sends null fechaFin when saving a vitalicia afiliacion', async () => {
+    const saved: Afiliacion = {
+      idAfiliacion: 3,
+      idPersona: 42,
+      fechaInicio: toApiDateTime(todayIso()),
+      fechaFin: null,
+      vitalicia: true,
+      deleted: false,
+    };
     await createComponent(42, {
-      create: vi.fn(() =>
-        of({
-          idAfiliacion: 3,
-          idPersona: 42,
-          fechaInicio: todayIso(),
-          fechaFin: null,
-          vitalicia: true,
-          deleted: false,
-        }),
-      ),
+      afiliacion: { create: vi.fn(() => of(saved)) },
+      imagen: {
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+        create: vi.fn((imagen: Imagen) =>
+          of({ ...imagen, idImagen: imagen.idTipoImagenDocumento === 5 ? 31 : 32 }),
+        ),
+      },
     });
 
     (fixture.nativeElement.querySelector('#vitalicia') as HTMLInputElement).click();
     fixture.detectChanges();
+    await attachImage('pago', 'pago.jpg');
+    await attachImage('solicitud', 'solicitud.jpg');
 
-    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
-      new Event('submit'),
-    );
+    submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(afiliacionService.create).toHaveBeenCalledWith({
       idPersona: 42,
-      fechaInicio: todayIso(),
+      fechaInicio: toApiDateTime(todayIso()),
       fechaFin: null,
       vitalicia: true,
       deleted: false,
@@ -192,16 +375,18 @@ describe('RegisterAfiliacion', () => {
     expect(afiliacionService.update).not.toHaveBeenCalled();
   });
 
-  it('loads a row into the form and updates it with idAfiliacion', async () => {
+  it('loads both slot images from a row and updates it without rewriting the images', async () => {
     await createComponent(42, {
-      findByIdPersona: vi.fn(() => of([existing])),
-      update: vi.fn(() => of({ ...existing, fechaFin: '2028-01-10' })),
+      afiliacion: {
+        findByIdPersona: vi.fn(() => of([existing])),
+        update: vi.fn(() => of({ ...existing, fechaFin: '2028-01-10T00:00:00.000Z' })),
+      },
+      imagen: {
+        findByIdPersona: vi.fn(() => of([pagoImage, solicitudImage])),
+      },
     });
 
-    const edit = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
-      (el) => el.textContent?.includes('Editar'),
-    ) as HTMLButtonElement;
-    edit.click();
+    editButton().click();
     fixture.detectChanges();
 
     const fechaInicio = fixture.nativeElement.querySelector('#fechaInicio') as HTMLInputElement;
@@ -209,42 +394,160 @@ describe('RegisterAfiliacion', () => {
     expect(fechaInicio.value).toBe('2026-01-10');
     expect(fechaFin.value).toBe('2027-01-10');
     expect(fixture.nativeElement.textContent).toContain('Actualizar');
+    expect(imagenService.getThumbnail).toHaveBeenCalledWith('abc.jpg');
+    expect(imagenService.getThumbnail).toHaveBeenCalledWith('def.jpg');
 
     fixture.componentInstance.afiliacionForm.controls.fechaFin.setValue('2028-01-10');
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
-      new Event('submit'),
-    );
+    submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
 
+    expect(imagenService.create).not.toHaveBeenCalled();
+    expect(imagenService.update).not.toHaveBeenCalled();
     expect(afiliacionService.update).toHaveBeenCalledWith({
       idAfiliacion: 9,
       idPersona: 42,
-      fechaInicio: '2026-01-10',
-      fechaFin: '2028-01-10',
+      fechaInicio: '2026-01-10T00:00:00.000Z',
+      fechaFin: '2028-01-10T00:00:00.000Z',
       vitalicia: false,
       deleted: false,
     });
     expect(afiliacionService.create).not.toHaveBeenCalled();
   });
 
+  it('updates only the existing pago image when replacing its file on an edited afiliacion', async () => {
+    await createComponent(42, {
+      afiliacion: {
+        findByIdPersona: vi.fn(() => of([existing])),
+        update: vi.fn(() => of(existing)),
+      },
+      imagen: {
+        findByIdPersona: vi.fn(() => of([pagoImage, solicitudImage])),
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+        update: vi.fn((imagen: Imagen) => of(imagen)),
+      },
+    });
+
+    editButton().click();
+    fixture.detectChanges();
+
+    await attachImage('pago', 'nuevo.jpg');
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(imagenService.update).toHaveBeenCalledWith({
+      idImagen: 9,
+      idPersona: 42,
+      idAfiliacion: 9,
+      uuid: 'nuevo.jpg',
+      idTipoImagenDocumento: 5,
+    });
+    expect(imagenService.create).not.toHaveBeenCalled();
+    expect(afiliacionService.update).toHaveBeenCalledWith({
+      idAfiliacion: 9,
+      idPersona: 42,
+      fechaInicio: '2026-01-10T00:00:00.000Z',
+      fechaFin: '2027-01-10T00:00:00.000Z',
+      vitalicia: false,
+      deleted: false,
+    });
+  });
+
+  it('loads the existing pago image and requires the missing solicitud image on edit', async () => {
+    await createComponent(42, {
+      afiliacion: {
+        findByIdPersona: vi.fn(() => of([existing])),
+        update: vi.fn(() => of(existing)),
+      },
+      imagen: {
+        findByIdPersona: vi.fn(() => of([pagoImage])),
+      },
+    });
+
+    editButton().click();
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    expect(component.images().pago.idImagen).toBe(9);
+    expect(component.images().pago.uuid).toBe('abc.jpg');
+    expect(component.images().solicitud.idImagen).toBeUndefined();
+    expect(imagenService.getThumbnail).toHaveBeenCalledWith('abc.jpg');
+
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(afiliacionService.update).not.toHaveBeenCalled();
+    expect(afiliacionService.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('La imagen de solicitud es obligatoria.');
+  });
+
+  it('renders a miniature for both slots in the table', async () => {
+    await createComponent(42, {
+      afiliacion: { findByIdPersona: vi.fn(() => of([existing])) },
+      imagen: {
+        findByIdPersona: vi.fn(() => of([pagoImage, solicitudImage])),
+        getThumbnail: vi.fn(() => of(new Blob(['x'], { type: 'image/jpeg' }))),
+      },
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const thumbs = fixture.nativeElement.querySelectorAll('tbody img.imagen-thumb-sm');
+    expect(thumbs).toHaveLength(2);
+    expect(thumbs[0].getAttribute('alt')).toContain('pago');
+    expect(thumbs[1].getAttribute('alt')).toContain('solicitud');
+    expect(imagenService.getThumbnail).toHaveBeenCalledWith('abc.jpg');
+    expect(imagenService.getThumbnail).toHaveBeenCalledWith('def.jpg');
+  });
+
+  it('falls back to findById to resolve a table thumbnail when the image has no uuid', async () => {
+    const pagoSinUuid: Imagen = {
+      idImagen: 9,
+      idPersona: 42,
+      idAfiliacion: 9,
+      uuid: '',
+      idTipoImagenDocumento: 5,
+    };
+    await createComponent(42, {
+      afiliacion: { findByIdPersona: vi.fn(() => of([existing])) },
+      imagen: {
+        findByIdPersona: vi.fn(() => of([pagoSinUuid])),
+        findById: vi.fn(() => of({ ...pagoSinUuid, uuid: 'abc.jpg' })),
+        getThumbnail: vi.fn(() => of(new Blob(['x'], { type: 'image/jpeg' }))),
+      },
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(imagenService.findById).toHaveBeenCalledWith(9);
+    expect(imagenService.getThumbnail).toHaveBeenCalledWith('abc.jpg');
+    const thumbs = fixture.nativeElement.querySelectorAll('tbody img.imagen-thumb-sm');
+    expect(thumbs).toHaveLength(1);
+  });
+
   it('renders deleted rows with a distinct background and without edit or delete actions', async () => {
     await createComponent(42, {
-      findByIdPersona: vi.fn(() =>
-        of([
-          existing,
-          {
-            idAfiliacion: 10,
-            idPersona: 42,
-            fechaInicio: '2024-01-01',
-            fechaFin: null,
-            vitalicia: true,
-            deleted: true,
-          },
-        ]),
-      ),
+      afiliacion: {
+        findByIdPersona: vi.fn(() =>
+          of([
+            existing,
+            {
+              idAfiliacion: 10,
+              idPersona: 42,
+              fechaInicio: '2024-01-01T00:00:00.000Z',
+              fechaFin: null,
+              vitalicia: true,
+              deleted: true,
+            },
+          ]),
+        ),
+      },
     });
 
     const rows = fixture.nativeElement.querySelectorAll('tbody tr');
@@ -258,8 +561,10 @@ describe('RegisterAfiliacion', () => {
 
   it('confirms before logically deleting a row', async () => {
     await createComponent(42, {
-      findByIdPersona: vi.fn(() => of([existing])),
-      update: vi.fn(() => of({ ...existing, deleted: true })),
+      afiliacion: {
+        findByIdPersona: vi.fn(() => of([existing])),
+        update: vi.fn(() => of({ ...existing, deleted: true })),
+      },
     });
 
     const remove = Array.from(
@@ -273,8 +578,8 @@ describe('RegisterAfiliacion', () => {
     expect(afiliacionService.update).toHaveBeenCalledWith({
       idAfiliacion: 9,
       idPersona: 42,
-      fechaInicio: '2026-01-10',
-      fechaFin: '2027-01-10',
+      fechaInicio: '2026-01-10T00:00:00.000Z',
+      fechaFin: '2027-01-10T00:00:00.000Z',
       vitalicia: false,
       deleted: true,
     });
@@ -289,7 +594,7 @@ describe('RegisterAfiliacion', () => {
     } as Awaited<ReturnType<typeof Swal.fire>>);
 
     await createComponent(42, {
-      findByIdPersona: vi.fn(() => of([existing])),
+      afiliacion: { findByIdPersona: vi.fn(() => of([existing])) },
     });
 
     const remove = Array.from(
@@ -305,20 +610,49 @@ describe('RegisterAfiliacion', () => {
 
   it('shows an error when afiliaciones cannot be loaded', async () => {
     await createComponent(42, {
-      findByIdPersona: vi.fn(() => throwError(() => new Error('fail'))),
+      afiliacion: { findByIdPersona: vi.fn(() => throwError(() => new Error('fail'))) },
     });
 
     expect(fixture.nativeElement.textContent).toContain('No se pudieron cargar las afiliaciones.');
   });
 
-  it('shows an error when saving fails', async () => {
+  it('shows an error when image types cannot be loaded', async () => {
     await createComponent(42, {
-      create: vi.fn(() => throwError(() => new Error('fail'))),
+      imagen: { listTiposForAfiliacion: vi.fn(() => throwError(() => new Error('fail'))) },
     });
 
-    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
-      new Event('submit'),
+    expect(fixture.nativeElement.textContent).toContain(
+      'No se pudieron cargar los tipos de imagen.',
     );
+  });
+
+  it('shows an error when the catalog lacks PAGO and SOLICITUD types', async () => {
+    await createComponent(42, {
+      imagen: {
+        listTiposForAfiliacion: vi.fn(() =>
+          of([{ idTipoImagen: 7, tipo: 'OTRO', descripcion: '', fechaInicio: '', fechaFin: null }]),
+        ),
+      },
+    });
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'No se encontraron los tipos de imagen PAGO y SOLICITUD en el catálogo.',
+    );
+  });
+
+  it('shows an error when saving fails', async () => {
+    await createComponent(42, {
+      afiliacion: { create: vi.fn(() => throwError(() => new Error('fail'))) },
+      imagen: {
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+      },
+    });
+
+    await attachImage('pago', 'pago.jpg');
+    await attachImage('solicitud', 'solicitud.jpg');
+    submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
 

@@ -33,8 +33,8 @@ describe('AfiliacionService', () => {
   it('creates an afiliacion with POST afiliacion', () => {
     const afiliacion: Afiliacion = {
       idPersona: 7,
-      fechaInicio: '2026-09-02',
-      fechaFin: '2027-09-02',
+      fechaInicio: '2026-09-02T00:00:00.000Z',
+      fechaFin: '2027-09-02T00:00:00.000Z',
       vitalicia: false,
       deleted: false,
     };
@@ -54,8 +54,8 @@ describe('AfiliacionService', () => {
     const afiliacion: Afiliacion = {
       idAfiliacion: 15,
       idPersona: 7,
-      fechaInicio: '2026-09-02',
-      fechaFin: '2027-09-02',
+      fechaInicio: '2026-09-02T00:00:00.000Z',
+      fechaFin: '2027-09-02T00:00:00.000Z',
       vitalicia: false,
       deleted: false,
     };
@@ -75,7 +75,7 @@ describe('AfiliacionService', () => {
       {
         idAfiliacion: 1,
         idPersona: 7,
-        fechaInicio: '2026-09-02',
+        fechaInicio: '2026-09-02T00:00:00.000Z',
         fechaFin: null,
         vitalicia: true,
         deleted: false,

@@ -46,11 +46,12 @@ Defined in `src/app/app.routes.ts`:
 
 `Register` (`src/app/register/register.ts`) is a tab orchestrator. It does **not** own the forms.
 
-- Tabs: `persona` (default), `domicilio`, and `imagen`, stored in `activeTab` signal
-- After a persona is saved, `idPersona` is stored; the domicilio and imágenes tabs are blocked until then
+- Tabs: `persona` (default), `domicilio`, `imagen`, and `afiliacion`, stored in `activeTab` signal
+- After a persona is saved, `idPersona` is stored; the domicilio, imágenes, and afiliación tabs are blocked until then
 - `RegisterPerson` (`src/app/register/register-person/`): create/update persona, duplicate check via `PersonaService.search` + SweetAlert, emits `personaSaved`
 - `RegisterDomicilio` (`src/app/register/register-domicilio/`): create/update domicilio for the current `idPersona`
-- `RegisterImagen` (`src/app/register/register-imagen/`): 0-N images per persona. Upload file (`POST file`) → thumbnail (`GET imagen/thumbnail/{uuid}`) → select type (`GET static_catalog/tipo_imagen`) → create (`POST imagen`) or update (`POST imagen/update`). Same type may repeat. No delete of saved images; unsaved drafts can be discarded in the UI. Replacing a saved file persists immediately.
+- `RegisterImagen` (`src/app/register/register-imagen/`): 0-N images per persona. Upload file (`POST file`) → thumbnail (`GET imagen/thumbnail/{uuid}`) → select type (`GET static_catalog/tipo_imagen/for_persona`) → create (`POST imagen`) or update (`POST imagen/update`). Same type may repeat. No delete of saved images; unsaved drafts can be discarded in the UI. Replacing a saved file persists immediately. Images that belong to an afiliación (`idAfiliacion != null`) are filtered out — this tab shows only persona documents.
+- `RegisterAfiliacion` (`src/app/register/register-afiliacion/`): 0-N afiliaciones per persona. Dates are `<input type="date">` in the form and sent as date-time (`yyyy-MM-dd'T'00:00:00.000Z`); the API may return them as epoch-millis numbers, so `toInputDate()` accepts `string | number | Date`. Each afiliación requires two images (types `PAGO` and `SOLICITUD` from `GET static_catalog/tipo_imagen/for_afiliacion`). Save order: create (`POST afiliacion`) or update (`PUT afiliacion`) **first**, then create/update each `imagen` with the returned `idAfiliacion` (and `idPersona`). The image→afiliación link lives on `Imagen.idAfiliacion`, not on the afiliación. Table thumbnails and edit-slot loading are resolved by matching the persona's images (`GET imagen/find_by/idpersona/:id`) on `idAfiliacion` + `idTipoImagenDocumento`; when a matched image has no `uuid`, it falls back to `GET imagen/find_by/id/:id`. Soft-delete sets `deleted: true` via update.
 - Child components use `input.required()` / `output()` and load existing records with `effect()`
 - Dates are formatted with `formatDate(..., 'yyyy-MM-dd', 'en-US')` for `<input type="date">`
 
@@ -73,10 +74,13 @@ Defined in `src/app/app.routes.ts`:
 | Service            | Create           | Update                  | Read                                                                                                                                                                                      |
 | ------------------ | ---------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PersonaService`   | `POST persona`   | `POST persona/update`   | `GET persona/:id`, `GET persona` (search)                                                                                                                                                 |
-| `DomicilioService` | `POST domicilio` | `POST domicilio/update` | `GET domicilio/find_by/idpersona/:id`                                                                                                                                                     |
-| `ImagenService`    | `POST imagen`    | `POST imagen/update`    | `GET imagen/find_by/idpersona/:id`, `GET imagen/thumbnail/:uuid` (blob), `POST file` (multipart field `file` → `{ filename, uploadError, frontError }`), `GET static_catalog/tipo_imagen` |
+| `DomicilioService` | `POST domicilio` | `POST domicilio/update` | `GET domicilio/find_by/idpersona/:id`, `GET address/by_cp/:cp` (returns `Localizacion` with `colonias[]`, snake_case fields)                                                               |
+| `ImagenService`    | `POST imagen`    | `POST imagen/update`    | `GET imagen/find_by/idpersona/:id`, `GET imagen/find_by/id/:id`, `GET imagen/thumbnail/:uuid` (blob), `POST file` (multipart field `file` → `{ filename, uploadError, frontError }`), `GET static_catalog/tipo_imagen/for_persona`, `GET static_catalog/tipo_imagen/for_afiliacion` |
+| `AfiliacionService`| `POST afiliacion`| `PUT afiliacion`        | `GET afiliacion/find_by/id_persona/:id`                                                                                                                                                      |
 
-`Imagen` body: `{ idImagen?, idPersona, uuid, idTipoImagenDocumento }`. Catalog items use `idTipoImagen`; map that to `idTipoImagenDocumento` on save. `UploadResult.filename` is the stored uuid (with extension). `POST file` returns HTTP 200 even when `uploadError` is true — check the body.
+`Imagen` body: `{ idImagen?, idPersona, idAfiliacion?, uuid, idTipoImagenDocumento }`. `idAfiliacion` is set only for afiliación images (pago/solicitud); persona images omit it. Catalog items use `idTipoImagen`; map that to `idTipoImagenDocumento` on save. `UploadResult.filename` is the stored uuid (with extension). `POST file` returns HTTP 200 even when `uploadError` is true — check the body.
+
+`Afiliacion` body: `{ idAfiliacion?, idPersona, fechaInicio, fechaFin, vitalicia, deleted }`. `fechaInicio` / `fechaFin` are sent as date-time strings but may be returned as epoch-millis numbers. The afiliación no longer carries image ids — its images are `Imagen` rows linked via `idAfiliacion`.
 
 ## Environment config
 

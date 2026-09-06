@@ -49,6 +49,94 @@
       <label class="form-check-label" for="vitalicia">Vitalicia</label>
     </div>
 
+    <div class="mb-3">
+      <p class="form-label mb-2">Imágenes *</p>
+      @if (tiposError()) {
+        <div class="alert alert-danger">{{ tiposError() }}</div>
+      }
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <p class="fw-semibold mb-2">Imagen de pago *</p>
+          <div class="imagen-thumb-wrap mb-2">
+            @if (images().pago.thumbnailUrl) {
+              <img
+                [src]="images().pago.thumbnailUrl"
+                alt="Vista previa de la imagen de pago"
+                class="imagen-thumb"
+              />
+            } @else if (images().pago.uploading) {
+              <div class="imagen-thumb-placeholder text-muted">Subiendo...</div>
+            } @else {
+              <div class="imagen-thumb-placeholder text-muted">Sin vista previa</div>
+            }
+          </div>
+          <label
+            class="btn btn-outline-secondary btn-sm mb-0"
+            [class.disabled]="images().pago.uploading || saving()"
+          >
+            @if (images().pago.uuid) {
+              Reemplazar archivo
+            } @else {
+              Subir imagen
+            }
+            <input
+              id="filePago"
+              type="file"
+              accept="image/*"
+              class="d-none"
+              [disabled]="images().pago.uploading || saving()"
+              (change)="onSelectFile($event, 'pago')"
+            />
+          </label>
+          @if (images().pago.error) {
+            <div class="alert alert-danger mt-2 mb-0 py-2">{{ images().pago.error }}</div>
+          }
+        </div>
+        <div class="col-12 col-md-6">
+          <p class="fw-semibold mb-2">Imagen de solicitud *</p>
+          <div class="imagen-thumb-wrap mb-2">
+            @if (images().solicitud.thumbnailUrl) {
+              <img
+                [src]="images().solicitud.thumbnailUrl"
+                alt="Vista previa de la imagen de solicitud"
+                class="imagen-thumb"
+              />
+            } @else if (images().solicitud.uploading) {
+              <div class="imagen-thumb-placeholder text-muted">Subiendo...</div>
+            } @else {
+              <div class="imagen-thumb-placeholder text-muted">Sin vista previa</div>
+            }
+          </div>
+          <label
+            class="btn btn-outline-secondary btn-sm mb-0"
+            [class.disabled]="images().solicitud.uploading || saving()"
+          >
+            @if (images().solicitud.uuid) {
+              Reemplazar archivo
+            } @else {
+              Subir imagen
+            }
+            <input
+              id="fileSolicitud"
+              type="file"
+              accept="image/*"
+              class="d-none"
+              [disabled]="images().solicitud.uploading || saving()"
+              (change)="onSelectFile($event, 'solicitud')"
+            />
+          </label>
+          @if (images().solicitud.error) {
+            <div class="alert alert-danger mt-2 mb-0 py-2">
+              {{ images().solicitud.error }}
+            </div>
+          }
+        </div>
+      </div>
+      @if (imageError()) {
+        <div class="invalid-feedback d-block">{{ imageError() }}</div>
+      }
+    </div>
+
     @if (saveSuccess()) {
       <div class="alert alert-success">Afiliación guardada correctamente.</div>
     }
@@ -57,7 +145,11 @@
     }
 
     <div class="d-flex flex-wrap gap-2">
-      <button type="submit" class="btn btn-primary" [disabled]="saving()">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="saving() || images().pago.uploading || images().solicitud.uploading"
+      >
         @if (saving()) {
           Guardando...
         } @else if (editingId()) {
@@ -92,15 +184,41 @@
             <th>Fecha de inicio</th>
             <th>Fecha de fin</th>
             <th>Vitalicia</th>
+            <th>Última modificación</th>
+            <th>Pago</th>
+            <th>Solicitud</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
           @for (afiliacion of afiliaciones(); track afiliacion.idAfiliacion) {
             <tr [class.afiliacion-row-deleted]="afiliacion.deleted">
-              <td>{{ afiliacion.fechaInicio }}</td>
-              <td>{{ afiliacion.fechaFin || '—' }}</td>
+              <td>{{ formatFecha(afiliacion.fechaInicio) }}</td>
+              <td>{{ formatFecha(afiliacion.fechaFin) }}</td>
               <td>{{ afiliacion.vitalicia ? 'Sí' : 'No' }}</td>
+              <td>{{ formatDateTime(afiliacion.modifiedAt) }}</td>
+              <td>
+                @if (thumbnailFor(afiliacion, 'pago'); as thumbPago) {
+                  <img
+                    [src]="thumbPago"
+                    alt="Miniatura de la imagen de pago"
+                    class="imagen-thumb imagen-thumb-sm"
+                  />
+                } @else {
+                  <span class="text-muted">—</span>
+                }
+              </td>
+              <td>
+                @if (thumbnailFor(afiliacion, 'solicitud'); as thumbSolicitud) {
+                  <img
+                    [src]="thumbSolicitud"
+                    alt="Miniatura de la imagen de solicitud"
+                    class="imagen-thumb imagen-thumb-sm"
+                  />
+                } @else {
+                  <span class="text-muted">—</span>
+                }
+              </td>
               <td>
                 @if (!afiliacion.deleted) {
                   <div class="d-flex flex-wrap gap-2">
