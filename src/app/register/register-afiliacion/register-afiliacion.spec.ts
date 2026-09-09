@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { EMPTY, of, throwError } from 'rxjs';
 import Swal from 'sweetalert2';
 import { Imagen, ImagenService, TipoImagen } from '../register-imagen/imagen.service';
@@ -102,6 +104,7 @@ describe('RegisterAfiliacion', () => {
       providers: [
         { provide: AfiliacionService, useValue: afiliacionService },
         { provide: ImagenService, useValue: imagenService },
+        { provide: Router, useValue: { navigate: vi.fn() } },
       ],
     }).compileComponents();
 
@@ -685,6 +688,14 @@ describe('RegisterAfiliacion', () => {
     );
   });
 
+  function http500(message: string): HttpErrorResponse {
+    return new HttpErrorResponse({
+      status: 500,
+      statusText: 'Internal Server Error',
+      error: message,
+    });
+  }
+
   it('shows an error when saving fails', async () => {
     await createComponent(42, {
       afiliacion: { create: vi.fn(() => throwError(() => new Error('fail'))) },
@@ -703,6 +714,60 @@ describe('RegisterAfiliacion', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain(
+      'No se pudo guardar la afiliación. Intenta de nuevo.',
+    );
+  });
+
+  it('shows a SweetAlert with the server message when creating fails with HTTP 500', async () => {
+    const serverMessage =
+      'El registro no se puede modificar luego de 5 dias de haber sido registrado';
+    await createComponent(42, {
+      afiliacion: { create: vi.fn(() => throwError(() => http500(serverMessage))) },
+      imagen: {
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+      },
+    });
+
+    await attachImage('pago', 'pago.jpg');
+    await attachImage('solicitud', 'solicitud.jpg');
+    selectEstado();
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(Swal.fire).toHaveBeenCalledWith(
+      expect.objectContaining({ icon: 'error', text: serverMessage }),
+    );
+    expect(fixture.nativeElement.textContent).not.toContain(
+      'No se pudo guardar la afiliación. Intenta de nuevo.',
+    );
+  });
+
+  it('shows a SweetAlert with the server message when updating fails with HTTP 500', async () => {
+    const serverMessage =
+      'El registro no se puede modificar luego de 5 dias de haber sido registrado';
+    await createComponent(42, {
+      afiliacion: {
+        findByIdPersona: vi.fn(() => of([existing])),
+        update: vi.fn(() => throwError(() => http500(serverMessage))),
+      },
+      imagen: {
+        findByIdPersona: vi.fn(() => of([pagoImage, solicitudImage])),
+      },
+    });
+
+    editButton().click();
+    fixture.detectChanges();
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(Swal.fire).toHaveBeenCalledWith(
+      expect.objectContaining({ icon: 'error', text: serverMessage }),
+    );
+    expect(fixture.nativeElement.textContent).not.toContain(
       'No se pudo guardar la afiliación. Intenta de nuevo.',
     );
   });

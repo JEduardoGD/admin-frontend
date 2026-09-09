@@ -8,6 +8,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ErrorHandlerService } from '../../core/error-handler.service';
 import { forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import Swal from 'sweetalert2';
 import { Imagen, ImagenService, TipoImagen } from '../register-imagen/imagen.service';
@@ -88,6 +89,7 @@ export class RegisterAfiliacion {
   private readonly fb = inject(FormBuilder);
   private readonly afiliacionService = inject(AfiliacionService);
   private readonly imagenService = inject(ImagenService);
+  private readonly errorHandler = inject(ErrorHandlerService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly idPersona = input.required<number>();
@@ -175,10 +177,10 @@ export class RegisterAfiliacion {
   }
 
   estadoAbreviado(afiliacion: Afiliacion): string {
-    console.log('----------------------------')
-    console.log(this.estados())
-    console.log(afiliacion.idEstado)
-    console.log('----------------------------')
+    console.log('----------------------------');
+    console.log(this.estados());
+    console.log(afiliacion.idEstado);
+    console.log('----------------------------');
     if (afiliacion.idEstado === null || afiliacion.idEstado === undefined) {
       return '—';
     }
@@ -264,9 +266,11 @@ export class RegisterAfiliacion {
           this.loadAfiliaciones(this.idPersona());
           this.loadImagenes(this.idPersona());
         },
-        error: () => {
+        error: (err: unknown) => {
           this.saving.set(false);
-          this.saveError.set('No se pudo guardar la afiliación. Intenta de nuevo.');
+          if (!this.errorHandler.showServerError(err)) {
+            this.saveError.set('No se pudo guardar la afiliación. Intenta de nuevo.');
+          }
         },
       });
   }
@@ -377,9 +381,11 @@ export class RegisterAfiliacion {
         }
         this.loadAfiliaciones(this.idPersona());
       },
-      error: () => {
+      error: (err: unknown) => {
         this.deletingId.set(null);
-        this.saveError.set('No se pudo eliminar la afiliación. Intenta de nuevo.');
+        if (!this.errorHandler.showServerError(err)) {
+          this.saveError.set('No se pudo eliminar la afiliación. Intenta de nuevo.');
+        }
       },
     });
   }
