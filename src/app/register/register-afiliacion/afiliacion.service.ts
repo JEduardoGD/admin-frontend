@@ -3,9 +3,16 @@ import { Observable, catchError } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { ErrorHandlerService } from '../../core/error-handler.service';
 
+export interface Estado {
+  idEstado: number;
+  abreviado: string;
+  nombre: string;
+}
+
 export interface Afiliacion {
   idAfiliacion?: number;
   idPersona: number;
+  idEstado: number | null;
   fechaInicio: string | number;
   fechaFin: string | number | null;
   vitalicia: boolean;
@@ -27,6 +34,12 @@ export class AfiliacionService {
   update(afiliacion: Afiliacion): Observable<Afiliacion> {
     return this.api
       .put<Afiliacion>('afiliacion', afiliacion)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
+  }
+
+  listEstados(): Observable<Array<Estado>> {
+    return this.api
+      .get<Array<Estado>>('static_catalog/estado')
       .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 

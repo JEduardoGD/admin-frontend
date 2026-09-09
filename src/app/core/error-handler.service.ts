@@ -21,4 +21,30 @@ export class ErrorHandlerService {
     }
     return throwError(() => err);
   }
+
+  serverMessage(err: unknown): string | null {
+    if (
+      err instanceof HttpErrorResponse &&
+      err.status === 500 &&
+      typeof err.error === 'string' &&
+      err.error.trim()
+    ) {
+      return err.error;
+    }
+    return null;
+  }
+
+  showServerError(err: unknown): boolean {
+    const message = this.serverMessage(err);
+    if (!message) {
+      return false;
+    }
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: message,
+      confirmButtonText: 'Cerrar',
+    });
+    return true;
+  }
 }

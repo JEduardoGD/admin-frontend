@@ -8,10 +8,11 @@ import {
   Validators,
 } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ErrorHandlerService } from '../../core/error-handler.service';
 import { forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import Swal from 'sweetalert2';
 import { Imagen, ImagenService, TipoImagen } from '../register-imagen/imagen.service';
-import { Afiliacion, AfiliacionService } from './afiliacion.service';
+import { Afiliacion, AfiliacionService, Estado } from './afiliacion.service';
 
 export type ImageSlot = 'pago' | 'solicitud';
 
@@ -88,6 +89,7 @@ export class RegisterAfiliacion {
   private readonly fb = inject(FormBuilder);
   private readonly afiliacionService = inject(AfiliacionService);
   private readonly imagenService = inject(ImagenService);
+  private readonly errorHandler = inject(ErrorHandlerService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly idPersona = input.required<number>();
@@ -95,6 +97,8 @@ export class RegisterAfiliacion {
   readonly afiliaciones = signal<Array<Afiliacion>>([]);
   readonly imagenes = signal<Array<Imagen>>([]);
   readonly tipos = signal<Array<TipoImagen>>([]);
+  readonly estados = signal<Array<Estado>>([]);
+  readonly estadosError = signal<string | null>(null);
   readonly loading = signal(false);
   readonly loadError = signal<string | null>(null);
   readonly tiposError = signal<string | null>(null);
@@ -110,6 +114,7 @@ export class RegisterAfiliacion {
   readonly afiliacionForm = this.fb.nonNullable.group(
     {
       idAfiliacion: [''],
+      idEstado: ['', Validators.required],
       fechaInicio: [todayIso(), Validators.required],
       fechaFin: [plusYearsIso(1)],
       vitalicia: [false],
@@ -128,6 +133,7 @@ export class RegisterAfiliacion {
   constructor() {
     this.destroyRef.onDestroy(() => this.revokeAllObjectUrls());
     this.loadTipos();
+    this.loadEstados();
 
     this.afiliacionForm.controls.vitalicia.valueChanges
       .pipe(takeUntilDestroyed())
@@ -164,6 +170,23 @@ export class RegisterAfiliacion {
 
   slotLabel(slot: ImageSlot): string {
     return slot === 'pago' ? 'de pago' : 'de solicitud';
+  }
+
+  estadoLabel(estado: Estado): string {
+    return `${estado.abreviado} - ${estado.nombre}`;
+  }
+
+  estadoAbreviado(afiliacion: Afiliacion): string {
+    console.log('----------------------------');
+    console.log(this.estados());
+    console.log(afiliacion.idEstado);
+    console.log('----------------------------');
+    if (afiliacion.idEstado === null || afiliacion.idEstado === undefined) {
+      return '—';
+    }
+    return (
+      this.estados().find((estado) => estado.idEstado === afiliacion.idEstado)?.abreviado ?? '—'
+    );
   }
 
   onSelectFile(event: Event, slot: ImageSlot): void {
@@ -243,9 +266,11 @@ export class RegisterAfiliacion {
           this.loadAfiliaciones(this.idPersona());
           this.loadImagenes(this.idPersona());
         },
-        error: () => {
+        error: (err: unknown) => {
           this.saving.set(false);
-          this.saveError.set('No se pudo guardar la afiliación. Intenta de nuevo.');
+          if (!this.errorHandler.showServerError(err)) {
+            this.saveError.set('No se pudo guardar la afiliación. Intenta de nuevo.');
+          }
         },
       });
   }
@@ -265,6 +290,10 @@ export class RegisterAfiliacion {
     this.afiliacionForm.enable();
     this.afiliacionForm.patchValue({
       idAfiliacion: String(afiliacion.idAfiliacion),
+      idEstado:
+        afiliacion.idEstado === null || afiliacion.idEstado === undefined
+          ? ''
+          : String(afiliacion.idEstado),
       fechaInicio: toInputDate(afiliacion.fechaInicio),
       fechaFin: vitalicia ? '' : toInputDate(afiliacion.fechaFin),
       vitalicia,
@@ -337,6 +366,7 @@ export class RegisterAfiliacion {
     const payload: Afiliacion = {
       idAfiliacion,
       idPersona: this.idPersona(),
+      idEstado: afiliacion.idEstado,
       fechaInicio: toInputDate(afiliacion.fechaInicio),
       fechaFin: afiliacion.fechaFin ? toInputDate(afiliacion.fechaFin) : null,
       vitalicia: afiliacion.vitalicia,
@@ -351,9 +381,11 @@ export class RegisterAfiliacion {
         }
         this.loadAfiliaciones(this.idPersona());
       },
-      error: () => {
+      error: (err: unknown) => {
         this.deletingId.set(null);
-        this.saveError.set('No se pudo eliminar la afiliación. Intenta de nuevo.');
+        if (!this.errorHandler.showServerError(err)) {
+          this.saveError.set('No se pudo eliminar la afiliación. Intenta de nuevo.');
+        }
       },
     });
   }
@@ -381,6 +413,16 @@ export class RegisterAfiliacion {
         this.ensureTableThumbnails();
       },
       error: () => this.imagenes.set([]),
+    });
+  }
+
+  private loadEstados(): void {
+    this.afiliacionService.listEstados().subscribe({
+      next: (estados) => {
+        this.estados.set(estados ?? []);
+        this.estadosError.set(null);
+      },
+      error: () => this.estadosError.set('No se pudieron cargar los estados.'),
     });
   }
 
@@ -637,6 +679,7 @@ export class RegisterAfiliacion {
     this.afiliacionForm.enable();
     this.afiliacionForm.reset({
       idAfiliacion: '',
+      idEstado: '',
       fechaInicio: todayIso(),
       fechaFin: plusYearsIso(1),
       vitalicia: false,
@@ -652,6 +695,7 @@ export class RegisterAfiliacion {
     return {
       ...(idAfiliacion !== undefined ? { idAfiliacion } : {}),
       idPersona: this.idPersona(),
+      idEstado: Number(value.idEstado),
       fechaInicio: value.fechaInicio,
       fechaFin: vitalicia || !value.fechaFin ? null : value.fechaFin,
       vitalicia,

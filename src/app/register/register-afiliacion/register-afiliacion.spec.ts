@@ -1,15 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { EMPTY, of, throwError } from 'rxjs';
 import Swal from 'sweetalert2';
 import { Imagen, ImagenService, TipoImagen } from '../register-imagen/imagen.service';
-import { Afiliacion, AfiliacionService } from './afiliacion.service';
-import {
-  ImageSlot,
-  plusYearsIso,
-  RegisterAfiliacion,
-  toApiDateTime,
-  todayIso,
-} from './register-afiliacion';
+import { Afiliacion, AfiliacionService, Estado } from './afiliacion.service';
+import { ImageSlot, plusYearsIso, RegisterAfiliacion, todayIso } from './register-afiliacion';
 
 vi.mock('sweetalert2', () => ({
   default: {
@@ -23,6 +19,7 @@ describe('RegisterAfiliacion', () => {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     findByIdPersona: ReturnType<typeof vi.fn>;
+    listEstados: ReturnType<typeof vi.fn>;
   };
   let imagenService: {
     listTiposForAfiliacion: ReturnType<typeof vi.fn>;
@@ -61,9 +58,15 @@ describe('RegisterAfiliacion', () => {
     idTipoImagenDocumento: 6,
   };
 
+  const estados: Estado[] = [
+    { idEstado: 1, abreviado: 'AGS', nombre: 'AGUASCALIENTES' },
+    { idEstado: 3, abreviado: 'BCS', nombre: 'BAJA CALIFORNIA SUR' },
+  ];
+
   const existing: Afiliacion = {
     idAfiliacion: 9,
     idPersona: 42,
+    idEstado: 3,
     fechaInicio: '2026-01-10T00:00:00.000Z',
     fechaFin: '2027-01-10T00:00:00.000Z',
     vitalicia: false,
@@ -81,6 +84,7 @@ describe('RegisterAfiliacion', () => {
       create: vi.fn(),
       update: vi.fn(),
       findByIdPersona: vi.fn(() => of([])),
+      listEstados: vi.fn(() => of(estados)),
       ...overrides?.afiliacion,
     };
     imagenService = {
@@ -100,6 +104,7 @@ describe('RegisterAfiliacion', () => {
       providers: [
         { provide: AfiliacionService, useValue: afiliacionService },
         { provide: ImagenService, useValue: imagenService },
+        { provide: Router, useValue: { navigate: vi.fn() } },
       ],
     }).compileComponents();
 
@@ -135,6 +140,10 @@ describe('RegisterAfiliacion', () => {
     );
   }
 
+  function selectEstado(idEstado = 1): void {
+    fixture.componentInstance.afiliacionForm.controls.idEstado.setValue(String(idEstado));
+  }
+
   beforeEach(() => {
     if (typeof URL.createObjectURL !== 'function') {
       URL.createObjectURL = () => 'blob:mock';
@@ -159,6 +168,11 @@ describe('RegisterAfiliacion', () => {
     expect(fechaFin.disabled).toBe(false);
     expect(vitalicia.checked).toBe(false);
     expect(compiled.textContent).toContain('Esta persona aún no tiene afiliaciones.');
+    const estadoSelect = compiled.querySelector('#idEstado') as HTMLSelectElement;
+    expect(estadoSelect).not.toBeNull();
+    expect(estadoSelect.tagName).toBe('SELECT');
+    expect(estadoSelect.options.length).toBe(3);
+    expect(estadoSelect.options[1].textContent).toContain('AGS - AGUASCALIENTES');
     expect(compiled.querySelector('#filePago')).not.toBeNull();
     expect(compiled.querySelector('#fileSolicitud')).not.toBeNull();
     expect(compiled.textContent).toContain('Imagen de pago');
@@ -228,6 +242,7 @@ describe('RegisterAfiliacion', () => {
             {
               idAfiliacion: 9,
               idPersona: 42,
+              idEstado: 3,
               fechaInicio: Date.UTC(2026, 0, 10),
               fechaFin: Date.UTC(2027, 0, 10),
               vitalicia: false,
@@ -241,6 +256,7 @@ describe('RegisterAfiliacion', () => {
     const cells = fixture.nativeElement.querySelectorAll('tbody td');
     expect(cells[0].textContent).toContain('2026-01-10');
     expect(cells[1].textContent).toContain('2027-01-10');
+    expect(cells[3].textContent).toContain('BCS');
   });
 
   it('does not save without both the pago and solicitud images', async () => {
@@ -248,6 +264,7 @@ describe('RegisterAfiliacion', () => {
       afiliacion: { create: vi.fn(() => of(existing)) },
     });
 
+    selectEstado();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -269,6 +286,7 @@ describe('RegisterAfiliacion', () => {
     });
 
     await attachImage('pago', 'pago.jpg');
+    selectEstado();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -278,12 +296,33 @@ describe('RegisterAfiliacion', () => {
     expect(fixture.nativeElement.textContent).toContain('La imagen de solicitud es obligatoria.');
   });
 
+  it('requires an estado before saving', async () => {
+    await createComponent(42, {
+      afiliacion: { create: vi.fn(() => of(existing)) },
+      imagen: {
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+      },
+    });
+
+    await attachImage('pago', 'pago.jpg');
+    await attachImage('solicitud', 'solicitud.jpg');
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(afiliacionService.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('El estado es obligatorio.');
+  });
+
   it('creates the afiliacion first and then both images carrying idAfiliacion', async () => {
     const saved: Afiliacion = {
       idAfiliacion: 21,
       idPersona: 42,
-      fechaInicio: toApiDateTime(todayIso()),
-      fechaFin: toApiDateTime(plusYearsIso(1)),
+      idEstado: 1,
+      fechaInicio: todayIso(),
+      fechaFin: plusYearsIso(1),
       vitalicia: false,
       deleted: false,
     };
@@ -307,14 +346,16 @@ describe('RegisterAfiliacion', () => {
 
     await attachImage('pago', 'pago.jpg');
     await attachImage('solicitud', 'solicitud.jpg');
+    selectEstado();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(afiliacionService.create).toHaveBeenCalledWith({
       idPersona: 42,
-      fechaInicio: toApiDateTime(todayIso()),
-      fechaFin: toApiDateTime(plusYearsIso(1)),
+      idEstado: 1,
+      fechaInicio: todayIso(),
+      fechaFin: plusYearsIso(1),
       vitalicia: false,
       deleted: false,
     });
@@ -339,7 +380,8 @@ describe('RegisterAfiliacion', () => {
     const saved: Afiliacion = {
       idAfiliacion: 3,
       idPersona: 42,
-      fechaInicio: toApiDateTime(todayIso()),
+      idEstado: 1,
+      fechaInicio: todayIso(),
       fechaFin: null,
       vitalicia: true,
       deleted: false,
@@ -360,6 +402,7 @@ describe('RegisterAfiliacion', () => {
     fixture.detectChanges();
     await attachImage('pago', 'pago.jpg');
     await attachImage('solicitud', 'solicitud.jpg');
+    selectEstado();
 
     submitForm();
     await fixture.whenStable();
@@ -367,7 +410,8 @@ describe('RegisterAfiliacion', () => {
 
     expect(afiliacionService.create).toHaveBeenCalledWith({
       idPersona: 42,
-      fechaInicio: toApiDateTime(todayIso()),
+      idEstado: 1,
+      fechaInicio: todayIso(),
       fechaFin: null,
       vitalicia: true,
       deleted: false,
@@ -409,8 +453,9 @@ describe('RegisterAfiliacion', () => {
     expect(afiliacionService.update).toHaveBeenCalledWith({
       idAfiliacion: 9,
       idPersona: 42,
-      fechaInicio: '2026-01-10T00:00:00.000Z',
-      fechaFin: '2028-01-10T00:00:00.000Z',
+      idEstado: 3,
+      fechaInicio: '2026-01-10',
+      fechaFin: '2028-01-10',
       vitalicia: false,
       deleted: false,
     });
@@ -451,8 +496,9 @@ describe('RegisterAfiliacion', () => {
     expect(afiliacionService.update).toHaveBeenCalledWith({
       idAfiliacion: 9,
       idPersona: 42,
-      fechaInicio: '2026-01-10T00:00:00.000Z',
-      fechaFin: '2027-01-10T00:00:00.000Z',
+      idEstado: 3,
+      fechaInicio: '2026-01-10',
+      fechaFin: '2027-01-10',
       vitalicia: false,
       deleted: false,
     });
@@ -540,6 +586,7 @@ describe('RegisterAfiliacion', () => {
             {
               idAfiliacion: 10,
               idPersona: 42,
+              idEstado: 1,
               fechaInicio: '2024-01-01T00:00:00.000Z',
               fechaFin: null,
               vitalicia: true,
@@ -578,8 +625,9 @@ describe('RegisterAfiliacion', () => {
     expect(afiliacionService.update).toHaveBeenCalledWith({
       idAfiliacion: 9,
       idPersona: 42,
-      fechaInicio: '2026-01-10T00:00:00.000Z',
-      fechaFin: '2027-01-10T00:00:00.000Z',
+      idEstado: 3,
+      fechaInicio: '2026-01-10',
+      fechaFin: '2027-01-10',
       vitalicia: false,
       deleted: true,
     });
@@ -640,6 +688,14 @@ describe('RegisterAfiliacion', () => {
     );
   });
 
+  function http500(message: string): HttpErrorResponse {
+    return new HttpErrorResponse({
+      status: 500,
+      statusText: 'Internal Server Error',
+      error: message,
+    });
+  }
+
   it('shows an error when saving fails', async () => {
     await createComponent(42, {
       afiliacion: { create: vi.fn(() => throwError(() => new Error('fail'))) },
@@ -652,11 +708,66 @@ describe('RegisterAfiliacion', () => {
 
     await attachImage('pago', 'pago.jpg');
     await attachImage('solicitud', 'solicitud.jpg');
+    selectEstado();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain(
+      'No se pudo guardar la afiliación. Intenta de nuevo.',
+    );
+  });
+
+  it('shows a SweetAlert with the server message when creating fails with HTTP 500', async () => {
+    const serverMessage =
+      'El registro no se puede modificar luego de 5 dias de haber sido registrado';
+    await createComponent(42, {
+      afiliacion: { create: vi.fn(() => throwError(() => http500(serverMessage))) },
+      imagen: {
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+      },
+    });
+
+    await attachImage('pago', 'pago.jpg');
+    await attachImage('solicitud', 'solicitud.jpg');
+    selectEstado();
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(Swal.fire).toHaveBeenCalledWith(
+      expect.objectContaining({ icon: 'error', text: serverMessage }),
+    );
+    expect(fixture.nativeElement.textContent).not.toContain(
+      'No se pudo guardar la afiliación. Intenta de nuevo.',
+    );
+  });
+
+  it('shows a SweetAlert with the server message when updating fails with HTTP 500', async () => {
+    const serverMessage =
+      'El registro no se puede modificar luego de 5 dias de haber sido registrado';
+    await createComponent(42, {
+      afiliacion: {
+        findByIdPersona: vi.fn(() => of([existing])),
+        update: vi.fn(() => throwError(() => http500(serverMessage))),
+      },
+      imagen: {
+        findByIdPersona: vi.fn(() => of([pagoImage, solicitudImage])),
+      },
+    });
+
+    editButton().click();
+    fixture.detectChanges();
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(Swal.fire).toHaveBeenCalledWith(
+      expect.objectContaining({ icon: 'error', text: serverMessage }),
+    );
+    expect(fixture.nativeElement.textContent).not.toContain(
       'No se pudo guardar la afiliación. Intenta de nuevo.',
     );
   });

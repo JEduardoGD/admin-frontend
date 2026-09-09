@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { ErrorHandlerService } from '../../core/error-handler.service';
-import { Afiliacion, AfiliacionService } from './afiliacion.service';
+import { Afiliacion, AfiliacionService, Estado } from './afiliacion.service';
 
 describe('AfiliacionService', () => {
   let service: AfiliacionService;
@@ -33,6 +33,7 @@ describe('AfiliacionService', () => {
   it('creates an afiliacion with POST afiliacion', () => {
     const afiliacion: Afiliacion = {
       idPersona: 7,
+      idEstado: 1,
       fechaInicio: '2026-09-02T00:00:00.000Z',
       fechaFin: '2027-09-02T00:00:00.000Z',
       vitalicia: false,
@@ -54,6 +55,7 @@ describe('AfiliacionService', () => {
     const afiliacion: Afiliacion = {
       idAfiliacion: 15,
       idPersona: 7,
+      idEstado: 1,
       fechaInicio: '2026-09-02T00:00:00.000Z',
       fechaFin: '2027-09-02T00:00:00.000Z',
       vitalicia: false,
@@ -75,6 +77,7 @@ describe('AfiliacionService', () => {
       {
         idAfiliacion: 1,
         idPersona: 7,
+        idEstado: 2,
         fechaInicio: '2026-09-02T00:00:00.000Z',
         fechaFin: null,
         vitalicia: true,
@@ -90,5 +93,21 @@ describe('AfiliacionService', () => {
 
     expect(api.get).toHaveBeenCalledWith('afiliacion/find_by/id_persona/7');
     expect(received).toEqual(afiliaciones);
+  });
+
+  it('lists estados from the static catalog', () => {
+    const estados: Estado[] = [
+      { idEstado: 1, abreviado: 'AGS', nombre: 'AGUASCALIENTES' },
+      { idEstado: 2, abreviado: 'BC', nombre: 'BAJA CALIFORNIA' },
+    ];
+    api.get.mockReturnValue(of(estados));
+
+    let received: Estado[] | undefined;
+    service.listEstados().subscribe((value) => {
+      received = value;
+    });
+
+    expect(api.get).toHaveBeenCalledWith('static_catalog/estado');
+    expect(received).toEqual(estados);
   });
 });
