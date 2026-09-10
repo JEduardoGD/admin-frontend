@@ -177,10 +177,6 @@ export class RegisterAfiliacion {
   }
 
   estadoAbreviado(afiliacion: Afiliacion): string {
-    console.log('----------------------------');
-    console.log(this.estados());
-    console.log(afiliacion.idEstado);
-    console.log('----------------------------');
     if (afiliacion.idEstado === null || afiliacion.idEstado === undefined) {
       return '—';
     }
