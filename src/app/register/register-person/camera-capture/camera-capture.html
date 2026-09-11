@@ -1,0 +1,64 @@
+<div
+  #cameraModal
+  class="modal fade"
+  tabindex="-1"
+  aria-labelledby="cameraModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cameraModalLabel">Capturar foto personal</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+
+      <div class="modal-body">
+        @if (cameraError()) {
+          <div class="alert alert-danger">{{ cameraError() }}</div>
+        }
+
+        <div class="camera-video-wrap">
+          <video #cameraVideo class="camera-video" autoplay playsinline muted></video>
+          @if (starting()) {
+            <div class="camera-overlay">Iniciando cámara...</div>
+          }
+        </div>
+
+        @if (devices().length > 1) {
+          <div class="mt-3">
+            <label class="form-label" for="cameraDevice">Cámara</label>
+            <select
+              id="cameraDevice"
+              class="form-select"
+              [value]="selectedDeviceId() ?? ''"
+              (change)="onDeviceChange($event)"
+            >
+              @for (device of devices(); track device.deviceId) {
+                <option [value]="device.deviceId">
+                  {{ device.label || 'Cámara ' + ($index + 1) }}
+                </option>
+              }
+            </select>
+          </div>
+        }
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="starting() || !streamReady()"
+          (click)="capture()"
+        >
+          Capturar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

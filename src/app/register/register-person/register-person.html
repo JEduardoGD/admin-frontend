@@ -67,3 +67,46 @@
     }
   </button>
 </form>
+
+<div class="photo-section">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <h5 class="mb-0">Foto personal</h5>
+    <button type="button" class="btn btn-primary" [disabled]="!canCapture()" (click)="openCamera()">
+      Tomar foto
+    </button>
+  </div>
+
+  @if (!canCapture()) {
+    <div class="alert alert-warning">
+      Primero debes guardar los datos de la persona para capturar su foto.
+    </div>
+  }
+
+  @if (photoError()) {
+    <div class="alert alert-danger">{{ photoError() }}</div>
+  }
+
+  @if (canCapture()) {
+    @if (photosLoading()) {
+      <p class="text-muted">Cargando fotos...</p>
+    } @else if (photos().length === 0) {
+      <div class="alert alert-info">Esta persona aún no tiene fotos personales.</div>
+    } @else {
+      <div class="row g-3">
+        @for (photo of photos(); track photo.localId) {
+          <div class="col-auto">
+            <div class="photo-thumb-wrap">
+              @if (photo.thumbnailUrl) {
+                <img [src]="photo.thumbnailUrl" alt="Foto personal" class="photo-thumb" />
+              } @else {
+                <div class="photo-thumb-placeholder text-muted">Sin vista previa</div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>
+
+<app-camera-capture #cameraCapture (photoCaptured)="onPhotoCaptured($event)" />
