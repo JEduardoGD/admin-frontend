@@ -24,6 +24,33 @@
     </div>
 
     <div class="mb-3">
+      <label for="idTipoAfiliacion" class="form-label">Tipo de afiliación *</label>
+      <select
+        id="idTipoAfiliacion"
+        class="form-select"
+        formControlName="idTipoAfiliacion"
+        [class.is-invalid]="
+          afiliacionForm.controls.idTipoAfiliacion.invalid &&
+          afiliacionForm.controls.idTipoAfiliacion.touched
+        "
+      >
+        <option value="" disabled>Seleccione un tipo de afiliación</option>
+        @for (tipo of tiposAfiliacion(); track tipo.idTipoAfiliacion) {
+          <option [value]="tipo.idTipoAfiliacion">{{ tipoAfiliacionLabel(tipo) }}</option>
+        }
+      </select>
+      @if (tiposAfiliacionError()) {
+        <div class="alert alert-danger mt-2 mb-0 py-2">{{ tiposAfiliacionError() }}</div>
+      }
+      @if (
+        afiliacionForm.controls.idTipoAfiliacion.invalid &&
+        afiliacionForm.controls.idTipoAfiliacion.touched
+      ) {
+        <div class="invalid-feedback">El tipo de afiliación es obligatorio.</div>
+      }
+    </div>
+
+    <div class="mb-3">
       <label for="fechaInicio" class="form-label">Fecha de inicio *</label>
       <input
         id="fechaInicio"
@@ -208,9 +235,8 @@
             <th>Fecha de fin</th>
             <th>Vitalicia</th>
             <th>Estado</th>
+            <th>Tipo</th>
             <th>Última modificación</th>
-            <th>Pago</th>
-            <th>Solicitud</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -221,29 +247,8 @@
               <td>{{ formatFecha(afiliacion.fechaFin) }}</td>
               <td>{{ afiliacion.vitalicia ? 'Sí' : 'No' }}</td>
               <td>{{ estadoAbreviado(afiliacion) }}</td>
+              <td>{{ tipoAfiliacionNombre(afiliacion) }}</td>
               <td>{{ formatDateTime(afiliacion.modifiedAt) }}</td>
-              <td>
-                @if (thumbnailFor(afiliacion, 'pago'); as thumbPago) {
-                  <img
-                    [src]="thumbPago"
-                    alt="Miniatura de la imagen de pago"
-                    class="imagen-thumb imagen-thumb-sm"
-                  />
-                } @else {
-                  <span class="text-muted">—</span>
-                }
-              </td>
-              <td>
-                @if (thumbnailFor(afiliacion, 'solicitud'); as thumbSolicitud) {
-                  <img
-                    [src]="thumbSolicitud"
-                    alt="Miniatura de la imagen de solicitud"
-                    class="imagen-thumb imagen-thumb-sm"
-                  />
-                } @else {
-                  <span class="text-muted">—</span>
-                }
-              </td>
               <td>
                 @if (!afiliacion.deleted) {
                   <div class="d-flex flex-wrap gap-2">

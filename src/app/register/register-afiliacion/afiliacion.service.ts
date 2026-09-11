@@ -9,10 +9,17 @@ export interface Estado {
   nombre: string;
 }
 
+export interface TipoAfiliacion {
+  idTipoAfiliacion: number;
+  tipo: string;
+  descripcion: string;
+}
+
 export interface Afiliacion {
   idAfiliacion?: number;
   idPersona: number;
   idEstado: number | null;
+  idTipoAfiliacion: number | null;
   fechaInicio: string | number;
   fechaFin: string | number | null;
   vitalicia: boolean;
@@ -40,6 +47,12 @@ export class AfiliacionService {
   listEstados(): Observable<Array<Estado>> {
     return this.api
       .get<Array<Estado>>('static_catalog/estado')
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
+  }
+
+  listTiposAfiliacion(): Observable<Array<TipoAfiliacion>> {
+    return this.api
+      .get<Array<TipoAfiliacion>>('static_catalog/tipo_afiliacion')
       .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 

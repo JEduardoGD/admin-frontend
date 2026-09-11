@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { EMPTY, of, throwError } from 'rxjs';
 import Swal from 'sweetalert2';
 import { Imagen, ImagenService, TipoImagen } from '../register-imagen/imagen.service';
-import { Afiliacion, AfiliacionService, Estado } from './afiliacion.service';
+import { Afiliacion, AfiliacionService, Estado, TipoAfiliacion } from './afiliacion.service';
 import { ImageSlot, plusYearsIso, RegisterAfiliacion, todayIso } from './register-afiliacion';
 
 vi.mock('sweetalert2', () => ({
@@ -20,6 +20,7 @@ describe('RegisterAfiliacion', () => {
     update: ReturnType<typeof vi.fn>;
     findByIdPersona: ReturnType<typeof vi.fn>;
     listEstados: ReturnType<typeof vi.fn>;
+    listTiposAfiliacion: ReturnType<typeof vi.fn>;
   };
   let imagenService: {
     listTiposForAfiliacion: ReturnType<typeof vi.fn>;
@@ -63,10 +64,21 @@ describe('RegisterAfiliacion', () => {
     { idEstado: 3, abreviado: 'BCS', nombre: 'BAJA CALIFORNIA SUR' },
   ];
 
+  const tiposAfiliacion: TipoAfiliacion[] = [
+    { idTipoAfiliacion: 1, tipo: 'AFICIONADO', descripcion: 'Radioaficionado con licencia' },
+    { idTipoAfiliacion: 2, tipo: 'ASPIRANTE', descripcion: 'Radioaficionado sin licencia' },
+    {
+      idTipoAfiliacion: 3,
+      tipo: 'EXTRANJERO',
+      descripcion: 'Radioaficionado con licencia extranjero',
+    },
+  ];
+
   const existing: Afiliacion = {
     idAfiliacion: 9,
     idPersona: 42,
     idEstado: 3,
+    idTipoAfiliacion: 1,
     fechaInicio: '2026-01-10T00:00:00.000Z',
     fechaFin: '2027-01-10T00:00:00.000Z',
     vitalicia: false,
@@ -85,6 +97,7 @@ describe('RegisterAfiliacion', () => {
       update: vi.fn(),
       findByIdPersona: vi.fn(() => of([])),
       listEstados: vi.fn(() => of(estados)),
+      listTiposAfiliacion: vi.fn(() => of(tiposAfiliacion)),
       ...overrides?.afiliacion,
     };
     imagenService = {
@@ -144,6 +157,17 @@ describe('RegisterAfiliacion', () => {
     fixture.componentInstance.afiliacionForm.controls.idEstado.setValue(String(idEstado));
   }
 
+  function selectTipoAfiliacion(idTipoAfiliacion = 1): void {
+    fixture.componentInstance.afiliacionForm.controls.idTipoAfiliacion.setValue(
+      String(idTipoAfiliacion),
+    );
+  }
+
+  function selectCatalogos(): void {
+    selectEstado();
+    selectTipoAfiliacion();
+  }
+
   beforeEach(() => {
     if (typeof URL.createObjectURL !== 'function') {
       URL.createObjectURL = () => 'blob:mock';
@@ -173,6 +197,13 @@ describe('RegisterAfiliacion', () => {
     expect(estadoSelect.tagName).toBe('SELECT');
     expect(estadoSelect.options.length).toBe(3);
     expect(estadoSelect.options[1].textContent).toContain('AGS - AGUASCALIENTES');
+    const tipoSelect = compiled.querySelector('#idTipoAfiliacion') as HTMLSelectElement;
+    expect(tipoSelect).not.toBeNull();
+    expect(tipoSelect.tagName).toBe('SELECT');
+    expect(tipoSelect.options.length).toBe(4);
+    expect(tipoSelect.options[1].textContent).toContain(
+      'AFICIONADO - Radioaficionado con licencia',
+    );
     expect(compiled.querySelector('#filePago')).not.toBeNull();
     expect(compiled.querySelector('#fileSolicitud')).not.toBeNull();
     expect(compiled.textContent).toContain('Imagen de pago');
@@ -264,7 +295,7 @@ describe('RegisterAfiliacion', () => {
       afiliacion: { create: vi.fn(() => of(existing)) },
     });
 
-    selectEstado();
+    selectCatalogos();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -286,7 +317,7 @@ describe('RegisterAfiliacion', () => {
     });
 
     await attachImage('pago', 'pago.jpg');
-    selectEstado();
+    selectCatalogos();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -308,6 +339,7 @@ describe('RegisterAfiliacion', () => {
 
     await attachImage('pago', 'pago.jpg');
     await attachImage('solicitud', 'solicitud.jpg');
+    selectTipoAfiliacion();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -316,11 +348,33 @@ describe('RegisterAfiliacion', () => {
     expect(fixture.nativeElement.textContent).toContain('El estado es obligatorio.');
   });
 
+  it('requires a tipo de afiliación before saving', async () => {
+    await createComponent(42, {
+      afiliacion: { create: vi.fn(() => of(existing)) },
+      imagen: {
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+      },
+    });
+
+    await attachImage('pago', 'pago.jpg');
+    await attachImage('solicitud', 'solicitud.jpg');
+    selectEstado();
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(afiliacionService.create).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('El tipo de afiliación es obligatorio.');
+  });
+
   it('creates the afiliacion first and then both images carrying idAfiliacion', async () => {
     const saved: Afiliacion = {
       idAfiliacion: 21,
       idPersona: 42,
       idEstado: 1,
+      idTipoAfiliacion: 1,
       fechaInicio: todayIso(),
       fechaFin: plusYearsIso(1),
       vitalicia: false,
@@ -346,7 +400,7 @@ describe('RegisterAfiliacion', () => {
 
     await attachImage('pago', 'pago.jpg');
     await attachImage('solicitud', 'solicitud.jpg');
-    selectEstado();
+    selectCatalogos();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -354,6 +408,7 @@ describe('RegisterAfiliacion', () => {
     expect(afiliacionService.create).toHaveBeenCalledWith({
       idPersona: 42,
       idEstado: 1,
+      idTipoAfiliacion: 1,
       fechaInicio: todayIso(),
       fechaFin: plusYearsIso(1),
       vitalicia: false,
@@ -381,6 +436,7 @@ describe('RegisterAfiliacion', () => {
       idAfiliacion: 3,
       idPersona: 42,
       idEstado: 1,
+      idTipoAfiliacion: 1,
       fechaInicio: todayIso(),
       fechaFin: null,
       vitalicia: true,
@@ -402,7 +458,7 @@ describe('RegisterAfiliacion', () => {
     fixture.detectChanges();
     await attachImage('pago', 'pago.jpg');
     await attachImage('solicitud', 'solicitud.jpg');
-    selectEstado();
+    selectCatalogos();
 
     submitForm();
     await fixture.whenStable();
@@ -411,6 +467,7 @@ describe('RegisterAfiliacion', () => {
     expect(afiliacionService.create).toHaveBeenCalledWith({
       idPersona: 42,
       idEstado: 1,
+      idTipoAfiliacion: 1,
       fechaInicio: todayIso(),
       fechaFin: null,
       vitalicia: true,
@@ -454,6 +511,7 @@ describe('RegisterAfiliacion', () => {
       idAfiliacion: 9,
       idPersona: 42,
       idEstado: 3,
+      idTipoAfiliacion: 1,
       fechaInicio: '2026-01-10',
       fechaFin: '2028-01-10',
       vitalicia: false,
@@ -497,6 +555,7 @@ describe('RegisterAfiliacion', () => {
       idAfiliacion: 9,
       idPersona: 42,
       idEstado: 3,
+      idTipoAfiliacion: 1,
       fechaInicio: '2026-01-10',
       fechaFin: '2027-01-10',
       vitalicia: false,
@@ -533,48 +592,16 @@ describe('RegisterAfiliacion', () => {
     expect(fixture.nativeElement.textContent).toContain('La imagen de solicitud es obligatoria.');
   });
 
-  it('renders a miniature for both slots in the table', async () => {
+  it('shows the tipo de afiliación in the summary table', async () => {
     await createComponent(42, {
       afiliacion: { findByIdPersona: vi.fn(() => of([existing])) },
-      imagen: {
-        findByIdPersona: vi.fn(() => of([pagoImage, solicitudImage])),
-        getThumbnail: vi.fn(() => of(new Blob(['x'], { type: 'image/jpeg' }))),
-      },
     });
-    await fixture.whenStable();
-    fixture.detectChanges();
 
-    const thumbs = fixture.nativeElement.querySelectorAll('tbody img.imagen-thumb-sm');
-    expect(thumbs).toHaveLength(2);
-    expect(thumbs[0].getAttribute('alt')).toContain('pago');
-    expect(thumbs[1].getAttribute('alt')).toContain('solicitud');
-    expect(imagenService.getThumbnail).toHaveBeenCalledWith('abc.jpg');
-    expect(imagenService.getThumbnail).toHaveBeenCalledWith('def.jpg');
-  });
-
-  it('falls back to findById to resolve a table thumbnail when the image has no uuid', async () => {
-    const pagoSinUuid: Imagen = {
-      idImagen: 9,
-      idPersona: 42,
-      idAfiliacion: 9,
-      uuid: '',
-      idTipoImagenDocumento: 5,
-    };
-    await createComponent(42, {
-      afiliacion: { findByIdPersona: vi.fn(() => of([existing])) },
-      imagen: {
-        findByIdPersona: vi.fn(() => of([pagoSinUuid])),
-        findById: vi.fn(() => of({ ...pagoSinUuid, uuid: 'abc.jpg' })),
-        getThumbnail: vi.fn(() => of(new Blob(['x'], { type: 'image/jpeg' }))),
-      },
-    });
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    expect(imagenService.findById).toHaveBeenCalledWith(9);
-    expect(imagenService.getThumbnail).toHaveBeenCalledWith('abc.jpg');
-    const thumbs = fixture.nativeElement.querySelectorAll('tbody img.imagen-thumb-sm');
-    expect(thumbs).toHaveLength(1);
+    const cells = fixture.nativeElement.querySelectorAll('tbody td');
+    expect(cells[4].textContent).toContain('AFICIONADO');
+    expect(fixture.nativeElement.querySelector('thead').textContent).toContain('Tipo');
+    expect(fixture.nativeElement.querySelector('thead').textContent).not.toContain('Pago');
+    expect(fixture.nativeElement.querySelector('thead').textContent).not.toContain('Solicitud');
   });
 
   it('renders deleted rows with a distinct background and without edit or delete actions', async () => {
@@ -626,6 +653,7 @@ describe('RegisterAfiliacion', () => {
       idAfiliacion: 9,
       idPersona: 42,
       idEstado: 3,
+      idTipoAfiliacion: 1,
       fechaInicio: '2026-01-10',
       fechaFin: '2027-01-10',
       vitalicia: false,
@@ -708,7 +736,7 @@ describe('RegisterAfiliacion', () => {
 
     await attachImage('pago', 'pago.jpg');
     await attachImage('solicitud', 'solicitud.jpg');
-    selectEstado();
+    selectCatalogos();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -732,7 +760,7 @@ describe('RegisterAfiliacion', () => {
 
     await attachImage('pago', 'pago.jpg');
     await attachImage('solicitud', 'solicitud.jpg');
-    selectEstado();
+    selectCatalogos();
     submitForm();
     await fixture.whenStable();
     fixture.detectChanges();

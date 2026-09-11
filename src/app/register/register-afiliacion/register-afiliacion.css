@@ -24,14 +24,6 @@
   object-fit: contain;
 }
 
-.imagen-thumb-sm {
-  width: 64px;
-  height: 64px;
-  max-width: 64px;
-  max-height: 64px;
-  object-fit: contain;
-}
-
 .imagen-thumb-placeholder {
   font-size: 0.875rem;
   text-align: center;

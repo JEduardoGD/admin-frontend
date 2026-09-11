@@ -12,7 +12,7 @@ import { ErrorHandlerService } from '../../core/error-handler.service';
 import { forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import Swal from 'sweetalert2';
 import { Imagen, ImagenService, TipoImagen } from '../register-imagen/imagen.service';
-import { Afiliacion, AfiliacionService, Estado } from './afiliacion.service';
+import { Afiliacion, AfiliacionService, Estado, TipoAfiliacion } from './afiliacion.service';
 
 export type ImageSlot = 'pago' | 'solicitud';
 
@@ -99,6 +99,8 @@ export class RegisterAfiliacion {
   readonly tipos = signal<Array<TipoImagen>>([]);
   readonly estados = signal<Array<Estado>>([]);
   readonly estadosError = signal<string | null>(null);
+  readonly tiposAfiliacion = signal<Array<TipoAfiliacion>>([]);
+  readonly tiposAfiliacionError = signal<string | null>(null);
   readonly loading = signal(false);
   readonly loadError = signal<string | null>(null);
   readonly tiposError = signal<string | null>(null);
@@ -109,12 +111,12 @@ export class RegisterAfiliacion {
   readonly editingId = signal<number | null>(null);
   readonly deletingId = signal<number | null>(null);
   readonly images = signal<Record<ImageSlot, AfiliacionImage>>(emptyImages());
-  readonly thumbnails = signal<Record<number, string>>({});
 
   readonly afiliacionForm = this.fb.nonNullable.group(
     {
       idAfiliacion: [''],
       idEstado: ['', Validators.required],
+      idTipoAfiliacion: ['', Validators.required],
       fechaInicio: [todayIso(), Validators.required],
       fechaFin: [plusYearsIso(1)],
       vitalicia: [false],
@@ -128,12 +130,12 @@ export class RegisterAfiliacion {
   private syncing = false;
   private loadedPersonaId: number | null = null;
   private readonly objectUrls = new Set<string>();
-  private readonly pendingTableThumbs = new Set<number>();
 
   constructor() {
     this.destroyRef.onDestroy(() => this.revokeAllObjectUrls());
     this.loadTipos();
     this.loadEstados();
+    this.loadTiposAfiliacion();
 
     this.afiliacionForm.controls.vitalicia.valueChanges
       .pipe(takeUntilDestroyed())
@@ -182,6 +184,20 @@ export class RegisterAfiliacion {
     }
     return (
       this.estados().find((estado) => estado.idEstado === afiliacion.idEstado)?.abreviado ?? '—'
+    );
+  }
+
+  tipoAfiliacionLabel(tipo: TipoAfiliacion): string {
+    return `${tipo.tipo} - ${tipo.descripcion}`;
+  }
+
+  tipoAfiliacionNombre(afiliacion: Afiliacion): string {
+    if (afiliacion.idTipoAfiliacion === null || afiliacion.idTipoAfiliacion === undefined) {
+      return '—';
+    }
+    return (
+      this.tiposAfiliacion().find((tipo) => tipo.idTipoAfiliacion === afiliacion.idTipoAfiliacion)
+        ?.tipo ?? '—'
     );
   }
 
@@ -290,6 +306,10 @@ export class RegisterAfiliacion {
         afiliacion.idEstado === null || afiliacion.idEstado === undefined
           ? ''
           : String(afiliacion.idEstado),
+      idTipoAfiliacion:
+        afiliacion.idTipoAfiliacion === null || afiliacion.idTipoAfiliacion === undefined
+          ? ''
+          : String(afiliacion.idTipoAfiliacion),
       fechaInicio: toInputDate(afiliacion.fechaInicio),
       fechaFin: vitalicia ? '' : toInputDate(afiliacion.fechaFin),
       vitalicia,
@@ -328,14 +348,6 @@ export class RegisterAfiliacion {
     });
   }
 
-  thumbnailFor(afiliacion: Afiliacion, slot: ImageSlot): string | null {
-    const idImagen = this.findImagenForAfiliacion(afiliacion.idAfiliacion, slot)?.idImagen;
-    if (idImagen === undefined) {
-      return null;
-    }
-    return this.thumbnails()[idImagen] ?? null;
-  }
-
   private findImagenForAfiliacion(
     idAfiliacion: number | undefined,
     slot: ImageSlot,
@@ -363,6 +375,7 @@ export class RegisterAfiliacion {
       idAfiliacion,
       idPersona: this.idPersona(),
       idEstado: afiliacion.idEstado,
+      idTipoAfiliacion: afiliacion.idTipoAfiliacion,
       fechaInicio: toInputDate(afiliacion.fechaInicio),
       fechaFin: afiliacion.fechaFin ? toInputDate(afiliacion.fechaFin) : null,
       vitalicia: afiliacion.vitalicia,
@@ -393,7 +406,6 @@ export class RegisterAfiliacion {
       next: (afiliaciones) => {
         this.afiliaciones.set(afiliaciones ?? []);
         this.loading.set(false);
-        this.ensureTableThumbnails();
       },
       error: () => {
         this.loading.set(false);
@@ -406,7 +418,6 @@ export class RegisterAfiliacion {
     this.imagenService.findByIdPersona(idPersona).subscribe({
       next: (imagenes) => {
         this.imagenes.set(imagenes ?? []);
-        this.ensureTableThumbnails();
       },
       error: () => this.imagenes.set([]),
     });
@@ -419,6 +430,16 @@ export class RegisterAfiliacion {
         this.estadosError.set(null);
       },
       error: () => this.estadosError.set('No se pudieron cargar los estados.'),
+    });
+  }
+
+  private loadTiposAfiliacion(): void {
+    this.afiliacionService.listTiposAfiliacion().subscribe({
+      next: (tipos) => {
+        this.tiposAfiliacion.set(tipos ?? []);
+        this.tiposAfiliacionError.set(null);
+      },
+      error: () => this.tiposAfiliacionError.set('No se pudieron cargar los tipos de afiliación.'),
     });
   }
 
@@ -517,46 +538,6 @@ export class RegisterAfiliacion {
         this.loadSlotThumbnailById(slot, saved.idImagen);
       }
     }
-  }
-
-  private ensureTableThumbnails(): void {
-    for (const afiliacion of this.afiliaciones()) {
-      for (const slot of ['pago', 'solicitud'] as Array<ImageSlot>) {
-        const imagen = this.findImagenForAfiliacion(afiliacion.idAfiliacion, slot);
-        const idImagen = imagen?.idImagen;
-        if (imagen === undefined || idImagen === undefined) {
-          continue;
-        }
-        if (this.thumbnails()[idImagen] || this.pendingTableThumbs.has(idImagen)) {
-          continue;
-        }
-        this.pendingTableThumbs.add(idImagen);
-        this.loadTableThumbnail(idImagen, imagen.uuid);
-      }
-    }
-  }
-
-  private loadTableThumbnail(idImagen: number, uuid: string | null | undefined): void {
-    const thumbnail$ = uuid
-      ? this.imagenService.getThumbnail(uuid)
-      : this.imagenService
-          .findById(idImagen)
-          .pipe(
-            switchMap((imagen) =>
-              imagen?.uuid
-                ? this.imagenService.getThumbnail(imagen.uuid)
-                : throwError(() => new Error(`missing uuid for image ${idImagen}`)),
-            ),
-          );
-
-    thumbnail$.subscribe({
-      next: (blob) => {
-        this.pendingTableThumbs.delete(idImagen);
-        const url = this.createObjectUrl(blob);
-        this.thumbnails.update((current) => ({ ...current, [idImagen]: url }));
-      },
-      error: () => this.pendingTableThumbs.delete(idImagen),
-    });
   }
 
   private loadThumbnail(slot: ImageSlot, uuid: string): void {
@@ -676,6 +657,7 @@ export class RegisterAfiliacion {
     this.afiliacionForm.reset({
       idAfiliacion: '',
       idEstado: '',
+      idTipoAfiliacion: '',
       fechaInicio: todayIso(),
       fechaFin: plusYearsIso(1),
       vitalicia: false,
@@ -692,6 +674,7 @@ export class RegisterAfiliacion {
       ...(idAfiliacion !== undefined ? { idAfiliacion } : {}),
       idPersona: this.idPersona(),
       idEstado: Number(value.idEstado),
+      idTipoAfiliacion: Number(value.idTipoAfiliacion),
       fechaInicio: value.fechaInicio,
       fechaFin: vitalicia || !value.fechaFin ? null : value.fechaFin,
       vitalicia,
