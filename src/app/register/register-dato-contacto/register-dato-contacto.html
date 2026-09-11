@@ -1,0 +1,134 @@
+<div class="mt-3">
+  <form [formGroup]="datoForm" (ngSubmit)="onSubmit()" class="dato-contacto-form">
+    <div class="mb-3">
+      <label for="idTipoDatoContacto" class="form-label">Tipo de dato *</label>
+      <select
+        id="idTipoDatoContacto"
+        class="form-select"
+        formControlName="idTipoDatoContacto"
+        [class.is-invalid]="
+          datoForm.controls.idTipoDatoContacto.invalid &&
+          datoForm.controls.idTipoDatoContacto.touched
+        "
+      >
+        <option value="" disabled>Seleccione un tipo</option>
+        @for (tipo of tipos(); track tipo.idTipoDatoContacto) {
+          <option [value]="tipo.idTipoDatoContacto">{{ tipoLabel(tipo) }}</option>
+        }
+      </select>
+      @if (tiposError()) {
+        <div class="alert alert-danger mt-2 mb-0 py-2">{{ tiposError() }}</div>
+      }
+      @if (
+        datoForm.controls.idTipoDatoContacto.invalid && datoForm.controls.idTipoDatoContacto.touched
+      ) {
+        <div class="invalid-feedback">El tipo de dato es obligatorio.</div>
+      }
+    </div>
+
+    <div class="mb-3">
+      <label for="dato" class="form-label">Dato *</label>
+      <input
+        id="dato"
+        type="text"
+        class="form-control"
+        formControlName="dato"
+        [class.is-invalid]="datoForm.controls.dato.invalid && datoForm.controls.dato.touched"
+      />
+      @if (datoForm.controls.dato.invalid && datoForm.controls.dato.touched) {
+        @if (datoForm.controls.dato.errors?.['required']) {
+          <div class="invalid-feedback">El dato es obligatorio.</div>
+        }
+        @if (datoForm.controls.dato.errors?.['datoEmail']) {
+          <div class="invalid-feedback">Introduce un correo electrónico válido.</div>
+        }
+        @if (datoForm.controls.dato.errors?.['datoMovil']) {
+          <div class="invalid-feedback">El teléfono móvil debe tener 10 dígitos.</div>
+        }
+        @if (datoForm.controls.dato.errors?.['datoFijo']) {
+          <div class="invalid-feedback">El teléfono fijo debe tener 7 u 10 dígitos.</div>
+        }
+      }
+    </div>
+
+    @if (saveSuccess()) {
+      <div class="alert alert-success">Dato de contacto guardado correctamente.</div>
+    }
+    @if (saveError()) {
+      <div class="alert alert-danger">{{ saveError() }}</div>
+    }
+
+    <div class="d-flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary" [disabled]="saving()">
+        @if (saving()) {
+          Guardando...
+        } @else if (editingId()) {
+          Actualizar
+        } @else {
+          Guardar
+        }
+      </button>
+      @if (editingId()) {
+        <button type="button" class="btn btn-outline-secondary" (click)="onCancelEdit()">
+          Cancelar
+        </button>
+      }
+    </div>
+  </form>
+
+  <h3 class="h5 mt-4">Datos de contacto</h3>
+
+  @if (loadError()) {
+    <div class="alert alert-danger">{{ loadError() }}</div>
+  }
+
+  @if (loading()) {
+    <p class="text-muted">Cargando datos de contacto...</p>
+  } @else if (datos().length === 0) {
+    <div class="alert alert-info">Esta persona aún no tiene datos de contacto.</div>
+  } @else {
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Dato</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (dato of datos(); track dato.idDatoContacto) {
+            <tr>
+              <td>{{ tipoNombre(dato) }}</td>
+              <td>{{ dato.dato }}</td>
+              <td>
+                <div class="d-flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    [disabled]="saving() || deletingId() !== null"
+                    (click)="onEdit(dato)"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-danger btn-sm"
+                    [disabled]="saving() || deletingId() !== null"
+                    (click)="onDelete(dato)"
+                  >
+                    @if (deletingId() === dato.idDatoContacto) {
+                      Eliminando...
+                    } @else {
+                      Eliminar
+                    }
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

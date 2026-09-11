@@ -4,12 +4,19 @@ import { RegisterPerson } from './register-person/register-person';
 import { RegisterDomicilio } from './register-domicilio/register-domicilio';
 import { RegisterImagen } from './register-imagen/register-imagen';
 import { RegisterAfiliacion } from './register-afiliacion/register-afiliacion';
+import { RegisterDatoContacto } from './register-dato-contacto/register-dato-contacto';
 
-export type RegisterTab = 'persona' | 'domicilio' | 'imagen' | 'afiliacion';
+export type RegisterTab = 'persona' | 'domicilio' | 'contacto' | 'imagen' | 'afiliacion';
 
 @Component({
   selector: 'app-register',
-  imports: [RegisterPerson, RegisterDomicilio, RegisterImagen, RegisterAfiliacion],
+  imports: [
+    RegisterPerson,
+    RegisterDomicilio,
+    RegisterImagen,
+    RegisterAfiliacion,
+    RegisterDatoContacto,
+  ],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
