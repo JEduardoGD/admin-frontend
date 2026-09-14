@@ -5,8 +5,10 @@ import { RegisterDomicilio } from './register-domicilio/register-domicilio';
 import { RegisterImagen } from './register-imagen/register-imagen';
 import { RegisterAfiliacion } from './register-afiliacion/register-afiliacion';
 import { RegisterDatoContacto } from './register-dato-contacto/register-dato-contacto';
+import { RegisterAficionado } from './register-aficionado/register-aficionado';
 
-export type RegisterTab = 'persona' | 'domicilio' | 'contacto' | 'imagen' | 'afiliacion';
+export type RegisterTab =
+  'persona' | 'domicilio' | 'contacto' | 'imagen' | 'afiliacion' | 'aficionado';
 
 @Component({
   selector: 'app-register',
@@ -16,6 +18,7 @@ export type RegisterTab = 'persona' | 'domicilio' | 'contacto' | 'imagen' | 'afi
     RegisterImagen,
     RegisterAfiliacion,
     RegisterDatoContacto,
+    RegisterAficionado,
   ],
   templateUrl: './register.html',
   styleUrl: './register.css',
