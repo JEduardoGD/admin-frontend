@@ -33,20 +33,29 @@ No lint or e2e scripts are configured.
 
 Defined in `src/app/app.routes.ts`:
 
-| Path              | Component      | Guard       | Notes                                                       |
-| ----------------- | -------------- | ----------- | ----------------------------------------------------------- |
-| `/`               | `LandingPage`  | —           | Public home; login or link to `/admin`                      |
-| `/admin`          | `AdminLayout`  | `authGuard` | Header + footer + child `router-outlet`                     |
-| `/admin` (child)  | `ControlPanel` | inherited   | Default authenticated view                                  |
-| `/admin/register` | `Register`     | inherited   | Persona + domicilio + contacto + imágenes + afiliación tabs |
+| Path              | Component      | Guard       | Notes                                                                      |
+| ----------------- | -------------- | ----------- | -------------------------------------------------------------------------- |
+| `/`               | `LandingPage`  | —           | Public home; login or link to `/admin`                                     |
+| `/admin`          | `AdminLayout`  | `authGuard` | Header + footer + child `router-outlet`                                    |
+| `/admin` (child)  | `ControlPanel` | inherited   | Default authenticated view; persona DataTable with credencial download     |
+| `/admin/register` | `Register`     | inherited   | Persona + domicilio + contacto + imágenes + afiliación tabs; `?idPersona=` |
 
 `authGuard` (`src/app/auth/auth.guard.ts`) is a functional `CanActivateFn`. If `AuthService.isAuthenticated()` is false it calls `login()` and returns `false`.
+
+## ControlPanel / Datatable
+
+- `ControlPanel` (`src/app/control-panel/`) is a thin shell hosting the reusable `Datatable` component (`src/app/control-panel/datatable/`)
+- `Datatable` initializes **DataTables.net** (v3, `datatables.net-bs5` + select + buttons plugins) imperatively in `ngAfterViewInit` on a `viewChild()` table ref; destroyed in `ngOnDestroy`. Not Angular-idiomatic wrappers — plain JS init with Spanish `language` strings
+- Server-side processing: `ajax` delegates to `DatatableService.find` → `POST sumary` (DataTables request body → `DataTableResponse` with `DatatableObj[]` rows `{ idPersona, name, readyForCredencial }`)
+- Buttons copy/csv/excel/pdf/print are enabled; HTML5 export requires `JSZip` and `pdfMake` (vfs fonts bundled) registered via `DataTable.Buttons.jszip/pdfMake`
+- Row actions (delegated click handler on anchors with `data-idpersona`): "Ver" and the name link navigate to `/admin/register?idPersona=…`; "Credencial" (rendered only when `readyForCredencial`) calls `DatatableService.credencial` → `GET credencial/:idPersona` (blob) and triggers a `credencial-<id>.pdf` download via a temporary object URL; errors show a SweetAlert ("No se pudo descargar la credencial.")
 
 ## Register flow
 
 `Register` (`src/app/register/register.ts`) is a tab orchestrator. It does **not** own the forms.
 
 - Tabs: `persona` (default), `domicilio`, `contacto`, `imagen`, and `afiliacion`, stored in `activeTab` signal
+- `idPersona` is seeded from the `?idPersona=` query param on init (set by the ControlPanel "Ver" / name links)
 - After a persona is saved, `idPersona` is stored; the domicilio, contacto, imágenes, and afiliación tabs — and the persona photo capture — are blocked until then
 - `RegisterPerson` (`src/app/register/register-person/`): create/update persona, duplicate check via `PersonaService.search` + SweetAlert, emits `personaSaved`. Also captures a **personal photo**: a "Tomar foto" button (disabled until `idPersona` is set) opens the `CameraCapture` modal; on capture it runs `POST file` → `POST imagen` (with `idTipoImagenDocumento = 1`, the PERSONAL PHOTO type) → thumbnail `GET imagen/thumbnail/:uuid`, and lists thumbnails below the form. Multiple photos per persona; they load via `effect()` on `idPersona`. Object-URL thumbnails are revoked on `DestroyRef`.
   - `CameraCapture` (`src/app/register/register-person/camera-capture/`): reusable Bootstrap modal wrapping a live `getUserMedia` `<video>` preview with a device selector and a "Capturar" button (canvas → JPEG `File`). Emits `photoCaptured: output<File>`; starts the stream on the modal's `shown.bs.modal` event and stops all tracks on `hidden.bs.modal`. The stream/camera lifecycle is owned here, not by the parent.
@@ -80,6 +89,7 @@ Defined in `src/app/app.routes.ts`:
 | `ImagenService`       | `POST imagen`       | `POST imagen/update`    | `GET imagen/find_by/idpersona/:id`, `GET imagen/find_by/id/:id`, `GET imagen/thumbnail/:uuid` (blob), `POST file` (multipart field `file` → `{ filename, uploadError, frontError }`), `GET static_catalog/tipo_imagen/for_persona`, `GET static_catalog/tipo_imagen/for_afiliacion` |
 | `AfiliacionService`   | `POST afiliacion`   | `PUT afiliacion`        | `GET afiliacion/find_by/id_persona/:id`, `GET static_catalog/estado` (returns `Estado[]`), `GET static_catalog/tipo_afiliacion` (returns `TipoAfiliacion[]`)                                                                                                                        |
 | `DatoContactoService` | `POST datocontacto` | `PUT datocontacto`      | `GET datocontacto/find_by/idpersona/:id`, `GET datocontacto/find_by/id/:id`, `DELETE datocontacto/:id` (pending backend), `GET static_catalog/tipo_datocontacto` (returns `TipoDatoContacto[]`)                                                                                     |
+| `DatatableService`    | —                   | —                       | `POST sumary` (server-side DataTables payload → `DataTableResponse`), `GET credencial/:idPersona` (blob via `getBlob`)                                                                                                                                                              |
 
 `Imagen` body: `{ idImagen?, idPersona, idAfiliacion?, uuid, idTipoImagenDocumento }`. `idAfiliacion` is set only for afiliación images (pago/solicitud); persona images omit it. Catalog items use `idTipoImagen`; map that to `idTipoImagenDocumento` on save. `UploadResult.filename` is the stored uuid (with extension). `POST file` returns HTTP 200 even when `uploadError` is true — check the body. The **PERSONAL PHOTO** captured in `RegisterPerson` is stored with a hardcoded `idTipoImagenDocumento = 1`; because it is a persona image (`idAfiliacion` null), it also shows up in the `RegisterImagen` tab.
 
