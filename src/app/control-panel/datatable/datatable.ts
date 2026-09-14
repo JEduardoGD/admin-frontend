@@ -16,6 +16,7 @@ import 'datatables.net-buttons/js/buttons.print.mjs';
 import JSZip from 'jszip';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
+import Swal from 'sweetalert2';
 import { DatatableService, DatatableObj } from './datatable.service';
 
 pdfMake.vfs = pdfFonts.vfs;
@@ -93,9 +94,13 @@ export class Datatable implements AfterViewInit, OnDestroy {
           title: 'Acciones',
           orderable: false,
           searchable: false,
-          width: '10%',
+          width: '18%',
           render: (_data: any, _type: string, row: DatatableObj) => {
-            return `<a href="#" class="btn btn-sm btn-primary dt-action-view" data-idpersona="${row.idPersona}">Ver</a>`;
+            const ver = `<a href="#" class="btn btn-sm btn-primary dt-action-view" data-idpersona="${row.idPersona}">Ver</a>`;
+            if (!row.readyForCredencial) {
+              return ver;
+            }
+            return `${ver} <a href="#" class="btn btn-sm btn-outline-primary dt-action-credencial" data-idpersona="${row.idPersona}">Credencial</a>`;
           },
         },
       ],
@@ -132,7 +137,32 @@ export class Datatable implements AfterViewInit, OnDestroy {
         self.router.navigate(['/admin/register'], { queryParams: { idPersona } });
       } else if (link.classList.contains('dt-name-link')) {
         self.router.navigate(['/admin/register'], { queryParams: { idPersona } });
+      } else if (link.classList.contains('dt-action-credencial')) {
+        self.downloadCredencial(Number(idPersona));
       }
+    });
+  }
+
+  private downloadCredencial(idPersona: number): void {
+    this.datatableService.credencial(idPersona).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `credencial-${idPersona}.pdf`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo descargar la credencial.',
+          confirmButtonText: 'Cerrar',
+        });
+      },
     });
   }
 

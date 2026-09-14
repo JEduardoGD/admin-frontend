@@ -21,6 +21,7 @@ export interface DataTablesRequest {
 export interface DatatableObj {
   idPersona: number;
   name: string;
+  readyForCredencial: boolean;
 }
 
 export interface DataTableResponse {
@@ -37,6 +38,12 @@ export class DatatableService {
 
   find(request: DataTablesRequest): Observable<DataTableResponse> {
     return this.api.post<DataTableResponse>('sumary', request).pipe(
+      catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)),
+    );
+  }
+
+  credencial(idPersona: number): Observable<Blob> {
+    return this.api.getBlob(`credencial/${idPersona}`).pipe(
       catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)),
     );
   }
