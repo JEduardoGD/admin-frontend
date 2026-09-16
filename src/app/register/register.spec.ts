@@ -72,4 +72,29 @@ describe('Register', () => {
     expect(compiled.querySelector('app-register-afiliacion')).not.toBeNull();
     expect(compiled.textContent).not.toContain('Primero debes guardar los datos de la persona.');
   });
+
+  it('renders the Aficionado tab and blocks it until a persona is saved', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Aficionado');
+
+    const aficionadoTab = Array.from(compiled.querySelectorAll('.nav-link')).find((el) =>
+      el.textContent?.includes('Aficionado'),
+    ) as HTMLAnchorElement;
+    aficionadoTab.click();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Primero debes guardar los datos de la persona.');
+    expect(compiled.querySelector('app-register-aficionado')).toBeNull();
+  });
+
+  it('shows the aficionado child once a persona id exists', async () => {
+    fixture.componentInstance.idPersona.set(12);
+    fixture.componentInstance.selectTab('aficionado');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('app-register-aficionado')).not.toBeNull();
+    expect(compiled.textContent).not.toContain('Primero debes guardar los datos de la persona.');
+  });
 });

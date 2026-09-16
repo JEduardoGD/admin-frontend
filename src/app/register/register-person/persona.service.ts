@@ -24,21 +24,21 @@ export class PersonaService {
   private readonly errorHandler = inject(ErrorHandlerService);
 
   create(persona: Persona): Observable<Persona> {
-    return this.api.post<Persona>('persona', persona).pipe(
-      catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)),
-    );
+    return this.api
+      .post<Persona>('persona', persona)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 
   update(persona: Persona): Observable<Persona> {
-    return this.api.post<Persona>('persona/update', persona).pipe(
-      catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)),
-    );
+    return this.api
+      .post<Persona>('persona/update', persona)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 
   findById(id: number): Observable<Persona> {
-    return this.api.get<Persona>(`persona/${id}`).pipe(
-      catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)),
-    );
+    return this.api
+      .get<Persona>(`persona/${id}`)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 
   search(criteria: PersonaSearchCriteria): Observable<Array<Persona>> {
@@ -47,8 +47,8 @@ export class PersonaService {
     if (criteria.primerApellido) params['primerApellido'] = criteria.primerApellido;
     if (criteria.segundoApellido) params['segundoApellido'] = criteria.segundoApellido;
     if (criteria.fecNac) params['fecNac'] = criteria.fecNac;
-    return this.api.get<Array<Persona>>('persona', params).pipe(
-      catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)),
-    );
+    return this.api
+      .get<Array<Persona>>('persona', params)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 }

@@ -16,7 +16,16 @@
         [class.active]="activeTab() === 'domicilio'"
         href="#"
         (click)="selectTab('domicilio'); $event.preventDefault()"
-        >Datos domicilio y contacto</a
+        >Datos domicilio</a
+      >
+    </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'contacto'"
+        href="#"
+        (click)="selectTab('contacto'); $event.preventDefault()"
+        >Datos de contacto</a
       >
     </li>
     <li class="nav-item">
@@ -37,6 +46,15 @@
         >Afiliación</a
       >
     </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'aficionado'"
+        href="#"
+        (click)="selectTab('aficionado'); $event.preventDefault()"
+        >Aficionado</a
+      >
+    </li>
   </ul>
 
   @if (activeTab() === 'persona') {
@@ -46,6 +64,14 @@
   @if (activeTab() === 'domicilio') {
     @if (idPersona()) {
       <app-register-domicilio [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+
+  @if (activeTab() === 'contacto') {
+    @if (idPersona()) {
+      <app-register-dato-contacto [idPersona]="idPersona()!" />
     } @else {
       <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
     }
@@ -62,6 +88,14 @@
   @if (activeTab() === 'afiliacion') {
     @if (idPersona()) {
       <app-register-afiliacion [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+
+  @if (activeTab() === 'aficionado') {
+    @if (idPersona()) {
+      <app-register-aficionado [idPersona]="idPersona()!" />
     } @else {
       <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
     }

@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { ErrorHandlerService } from '../../core/error-handler.service';
-import { Afiliacion, AfiliacionService, Estado } from './afiliacion.service';
+import { Afiliacion, AfiliacionService, Estado, TipoAfiliacion } from './afiliacion.service';
 
 describe('AfiliacionService', () => {
   let service: AfiliacionService;
@@ -34,6 +34,7 @@ describe('AfiliacionService', () => {
     const afiliacion: Afiliacion = {
       idPersona: 7,
       idEstado: 1,
+      idTipoAfiliacion: 1,
       fechaInicio: '2026-09-02T00:00:00.000Z',
       fechaFin: '2027-09-02T00:00:00.000Z',
       vitalicia: false,
@@ -56,6 +57,7 @@ describe('AfiliacionService', () => {
       idAfiliacion: 15,
       idPersona: 7,
       idEstado: 1,
+      idTipoAfiliacion: 1,
       fechaInicio: '2026-09-02T00:00:00.000Z',
       fechaFin: '2027-09-02T00:00:00.000Z',
       vitalicia: false,
@@ -78,6 +80,7 @@ describe('AfiliacionService', () => {
         idAfiliacion: 1,
         idPersona: 7,
         idEstado: 2,
+        idTipoAfiliacion: 2,
         fechaInicio: '2026-09-02T00:00:00.000Z',
         fechaFin: null,
         vitalicia: true,
@@ -109,5 +112,21 @@ describe('AfiliacionService', () => {
 
     expect(api.get).toHaveBeenCalledWith('static_catalog/estado');
     expect(received).toEqual(estados);
+  });
+
+  it('lists tipos de afiliacion from the static catalog', () => {
+    const tipos: TipoAfiliacion[] = [
+      { idTipoAfiliacion: 1, tipo: 'AFICIONADO', descripcion: 'Radioaficionado con licencia' },
+      { idTipoAfiliacion: 2, tipo: 'ASPIRANTE', descripcion: 'Radioaficionado sin licencia' },
+    ];
+    api.get.mockReturnValue(of(tipos));
+
+    let received: TipoAfiliacion[] | undefined;
+    service.listTiposAfiliacion().subscribe((value) => {
+      received = value;
+    });
+
+    expect(api.get).toHaveBeenCalledWith('static_catalog/tipo_afiliacion');
+    expect(received).toEqual(tipos);
   });
 });
