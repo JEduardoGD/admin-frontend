@@ -24,6 +24,11 @@ export interface DatatableObj {
   readyForCredencial: boolean;
 }
 
+export interface SendIdbadgeResponse {
+  error: boolean;
+  errorText: string;
+}
+
 export interface DataTableResponse {
   draw: number;
   recordsTotal: number;
@@ -37,14 +42,20 @@ export class DatatableService {
   private readonly errorHandler = inject(ErrorHandlerService);
 
   find(request: DataTablesRequest): Observable<DataTableResponse> {
-    return this.api.post<DataTableResponse>('sumary', request).pipe(
-      catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)),
-    );
+    return this.api
+      .post<DataTableResponse>('sumary', request)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 
   credencial(idPersona: number): Observable<Blob> {
-    return this.api.getBlob(`credencial/${idPersona}`).pipe(
-      catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)),
-    );
+    return this.api
+      .getBlob(`credencial/${idPersona}`)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
+  }
+
+  sendIdBadge(idPersona: number): Observable<SendIdbadgeResponse> {
+    return this.api
+      .get<SendIdbadgeResponse>(`credencial/send_idbadge/${idPersona}`)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 }

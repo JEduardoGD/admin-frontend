@@ -18,7 +18,7 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import { HttpErrorResponse } from '@angular/common/http';
 import Swal from 'sweetalert2';
-import { DatatableService, DatatableObj } from './datatable.service';
+import { DatatableService, DatatableObj, SendIdbadgeResponse } from './datatable.service';
 
 pdfMake.vfs = pdfFonts.vfs;
 DataTable.Buttons.jszip(JSZip);
@@ -95,13 +95,15 @@ export class Datatable implements AfterViewInit, OnDestroy {
           title: 'Acciones',
           orderable: false,
           searchable: false,
-          width: '18%',
+          width: '30%',
           render: (_data: any, _type: string, row: DatatableObj) => {
             const ver = `<a href="#" class="btn btn-sm btn-primary dt-action-view" data-idpersona="${row.idPersona}">Ver</a>`;
             if (!row.readyForCredencial) {
               return ver;
             }
-            return `${ver} <a href="#" class="btn btn-sm btn-outline-primary dt-action-credencial" data-idpersona="${row.idPersona}">Credencial</a>`;
+            const credencial = `<a href="#" class="btn btn-sm btn-outline-primary dt-action-credencial" data-idpersona="${row.idPersona}">Credencial</a>`;
+            const sendIdBadge = `<a href="#" class="btn btn-sm btn-outline-success dt-action-send-idbadge" data-idpersona="${row.idPersona}">Enviar credencial</a>`;
+            return `${ver} ${credencial} ${sendIdBadge}`;
           },
         },
       ],
@@ -140,6 +142,8 @@ export class Datatable implements AfterViewInit, OnDestroy {
         self.router.navigate(['/admin/register'], { queryParams: { idPersona } });
       } else if (link.classList.contains('dt-action-credencial')) {
         self.downloadCredencial(Number(idPersona), link);
+      } else if (link.classList.contains('dt-action-send-idbadge')) {
+        self.sendIdBadge(Number(idPersona), link);
       }
     });
   }
@@ -191,6 +195,78 @@ export class Datatable implements AfterViewInit, OnDestroy {
         });
       },
     });
+  }
+
+  private sendIdBadge(idPersona: number, button: HTMLAnchorElement): void {
+    if (button['dataset']['loading'] === 'true') {
+      return;
+    }
+    const original = button.innerHTML;
+    button['dataset']['loading'] = 'true';
+    button.setAttribute('aria-busy', 'true');
+    button.style.pointerEvents = 'none';
+    button.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+
+    const restore = (): void => {
+      button['dataset']['loading'] = 'false';
+      button.removeAttribute('aria-busy');
+      button.style.pointerEvents = '';
+      button.innerHTML = original;
+    };
+
+    this.datatableService.sendIdBadge(idPersona).subscribe({
+      next: (response) => {
+        restore();
+        if (response.error) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: response.errorText || 'No se pudo enviar la credencial.',
+            confirmButtonText: 'Cerrar',
+          });
+        } else {
+          Swal.fire({
+            icon: 'success',
+            title: 'Enviado',
+            text: 'Credencial enviada por correo.',
+            confirmButtonText: 'Cerrar',
+          });
+        }
+      },
+      error: async (err: unknown) => {
+        restore();
+        let text = 'No se pudo enviar la credencial.';
+        if (err instanceof HttpErrorResponse) {
+          if (err.status === 500) {
+            const response = await this.parseSendIdbadgeResponse(err.error);
+            if (response?.errorText) {
+              text = response.errorText;
+            }
+          }
+        }
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text,
+          confirmButtonText: 'Cerrar',
+        });
+      },
+    });
+  }
+
+  private async parseSendIdbadgeResponse(body: unknown): Promise<SendIdbadgeResponse | null> {
+    if (body instanceof Blob) {
+      try {
+        return JSON.parse(await body.text());
+      } catch {
+        return null;
+      }
+    }
+    if (typeof body === 'object' && body !== null) {
+      return body as SendIdbadgeResponse;
+    }
+    return null;
   }
 
   private async readBlobMessage(body: unknown): Promise<string | null> {
