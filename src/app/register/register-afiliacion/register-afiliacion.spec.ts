@@ -290,7 +290,7 @@ describe('RegisterAfiliacion', () => {
     expect(cells[3].textContent).toContain('BCS');
   });
 
-  it('does not save without both the pago and solicitud images', async () => {
+  it('saves without images when they are optional', async () => {
     await createComponent(42, {
       afiliacion: { create: vi.fn(() => of(existing)) },
     });
@@ -300,15 +300,13 @@ describe('RegisterAfiliacion', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
+    expect(afiliacionService.create).toHaveBeenCalled();
     expect(imagenService.create).not.toHaveBeenCalled();
-    expect(afiliacionService.create).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain(
-      'Las imágenes de pago y de solicitud son obligatorias.',
-    );
   });
 
-  it('requires the solicitud image when only the pago image is attached', async () => {
+  it('saves with only the pago image when solicitud is optional', async () => {
     await createComponent(42, {
+      afiliacion: { create: vi.fn(() => of(existing)) },
       imagen: {
         upload: vi.fn((file: File) =>
           of({ filename: file.name, uploadError: false, frontError: null }),
@@ -322,9 +320,8 @@ describe('RegisterAfiliacion', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(imagenService.create).not.toHaveBeenCalled();
-    expect(afiliacionService.create).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain('La imagen de solicitud es obligatoria.');
+    expect(afiliacionService.create).toHaveBeenCalled();
+    expect(imagenService.create).toHaveBeenCalledTimes(1);
   });
 
   it('requires an estado before saving', async () => {
@@ -563,7 +560,7 @@ describe('RegisterAfiliacion', () => {
     });
   });
 
-  it('loads the existing pago image and requires the missing solicitud image on edit', async () => {
+  it('loads the existing pago image and allows update without solicitud image', async () => {
     await createComponent(42, {
       afiliacion: {
         findByIdPersona: vi.fn(() => of([existing])),
@@ -587,9 +584,7 @@ describe('RegisterAfiliacion', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(afiliacionService.update).not.toHaveBeenCalled();
-    expect(afiliacionService.create).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain('La imagen de solicitud es obligatoria.');
+    expect(afiliacionService.update).toHaveBeenCalled();
   });
 
   it('shows the tipo de afiliación in the summary table', async () => {

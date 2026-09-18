@@ -100,13 +100,13 @@
     </div>
 
     <div class="mb-3">
-      <p class="form-label mb-2">Imágenes *</p>
+      <p class="form-label mb-2">Imágenes</p>
       @if (tiposError()) {
         <div class="alert alert-danger">{{ tiposError() }}</div>
       }
       <div class="row g-3">
         <div class="col-12 col-md-6">
-          <p class="fw-semibold mb-2">Imagen de pago *</p>
+          <p class="fw-semibold mb-2">Imagen de pago</p>
           <div class="imagen-thumb-wrap mb-2">
             @if (images().pago.thumbnailUrl) {
               <img
@@ -143,7 +143,7 @@
           }
         </div>
         <div class="col-12 col-md-6">
-          <p class="fw-semibold mb-2">Imagen de solicitud *</p>
+          <p class="fw-semibold mb-2">Imagen de solicitud</p>
           <div class="imagen-thumb-wrap mb-2">
             @if (images().solicitud.thumbnailUrl) {
               <img
