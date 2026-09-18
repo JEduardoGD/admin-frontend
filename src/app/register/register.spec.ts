@@ -97,4 +97,29 @@ describe('Register', () => {
     expect(compiled.querySelector('app-register-aficionado')).not.toBeNull();
     expect(compiled.textContent).not.toContain('Primero debes guardar los datos de la persona.');
   });
+
+  it('renders the Aspirante tab and blocks it until a persona is saved', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Aspirante');
+
+    const aspiranteTab = Array.from(compiled.querySelectorAll('.nav-link')).find((el) =>
+      el.textContent?.includes('Aspirante'),
+    ) as HTMLAnchorElement;
+    aspiranteTab.click();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Primero debes guardar los datos de la persona.');
+    expect(compiled.querySelector('app-register-aspirante')).toBeNull();
+  });
+
+  it('shows the aspirante child once a persona id exists', async () => {
+    fixture.componentInstance.idPersona.set(12);
+    fixture.componentInstance.selectTab('aspirante');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('app-register-aspirante')).not.toBeNull();
+    expect(compiled.textContent).not.toContain('Primero debes guardar los datos de la persona.');
+  });
 });

@@ -6,9 +6,10 @@ import { RegisterImagen } from './register-imagen/register-imagen';
 import { RegisterAfiliacion } from './register-afiliacion/register-afiliacion';
 import { RegisterDatoContacto } from './register-dato-contacto/register-dato-contacto';
 import { RegisterAficionado } from './register-aficionado/register-aficionado';
+import { RegisterAspirante } from './register-aspirante/register-aspirante';
 
 export type RegisterTab =
-  'persona' | 'domicilio' | 'contacto' | 'imagen' | 'afiliacion' | 'aficionado';
+  'persona' | 'domicilio' | 'contacto' | 'imagen' | 'afiliacion' | 'aficionado' | 'aspirante';
 
 @Component({
   selector: 'app-register',
@@ -19,6 +20,7 @@ export type RegisterTab =
     RegisterAfiliacion,
     RegisterDatoContacto,
     RegisterAficionado,
+    RegisterAspirante,
   ],
   templateUrl: './register.html',
   styleUrl: './register.css',

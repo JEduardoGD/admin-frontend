@@ -55,6 +55,15 @@
         >Aficionado</a
       >
     </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'aspirante'"
+        href="#"
+        (click)="selectTab('aspirante'); $event.preventDefault()"
+        >Aspirante</a
+      >
+    </li>
   </ul>
 
   @if (activeTab() === 'persona') {
@@ -96,6 +105,14 @@
   @if (activeTab() === 'aficionado') {
     @if (idPersona()) {
       <app-register-aficionado [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+
+  @if (activeTab() === 'aspirante') {
+    @if (idPersona()) {
+      <app-register-aspirante [idPersona]="idPersona()!" />
     } @else {
       <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
     }

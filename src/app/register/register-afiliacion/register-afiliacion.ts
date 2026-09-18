@@ -241,11 +241,6 @@ export class RegisterAfiliacion {
       this.imageError.set('No se encontraron los tipos de imagen PAGO y SOLICITUD en el catálogo.');
       return;
     }
-    const missing = this.missingImagesError();
-    if (missing) {
-      this.imageError.set(missing);
-      return;
-    }
 
     this.saving.set(true);
     this.saveSuccess.set(false);
@@ -476,27 +471,14 @@ export class RegisterAfiliacion {
     return Boolean(image.uuid && this.idTipoFor(slot));
   }
 
-  private missingImagesError(): string | null {
-    const missing: Array<ImageSlot> = (['pago', 'solicitud'] as Array<ImageSlot>).filter(
-      (slot) => !this.hasSlotImage(slot),
-    );
-    if (missing.length === 0) {
-      return null;
-    }
-    if (missing.length === 2) {
-      return 'Las imágenes de pago y de solicitud son obligatorias.';
-    }
-    return `La imagen ${this.slotLabel(missing[0])} es obligatoria.`;
-  }
-
-  private saveImage(slot: ImageSlot, idAfiliacion: number): Observable<number> {
+  private saveImage(slot: ImageSlot, idAfiliacion: number): Observable<number | null> {
     const image = this.images()[slot];
     if (image.idImagen && !image.dirty) {
       return of(image.idImagen);
     }
     const idTipoImagenDocumento = this.idTipoFor(slot);
     if (!image.uuid || !idTipoImagenDocumento) {
-      return throwError(() => new Error(`image required: ${slot}`));
+      return of(null);
     }
 
     const imagen: Imagen = {
@@ -513,7 +495,7 @@ export class RegisterAfiliacion {
     return request.pipe(
       map((saved) => {
         if (saved.idImagen === undefined) {
-          throw new Error(`image required: ${slot}`);
+          return null;
         }
         this.patchImage(slot, { idImagen: saved.idImagen, dirty: false });
         return saved.idImagen;
