@@ -1,59 +1,63 @@
-# FmreAdministrationFront
+# fmre-administration-front
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.1.4.
+Administration frontend for FMR&E, built with Angular 21.
 
-## Development server
+## Prerequisites
 
-To start a local development server, run:
+- Node.js 18+
+- npm 10+
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Setup
 
 ```bash
-ng generate component component-name
+npm install
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Create a `.env` file with the following variables:
 
-```bash
-ng generate --help
-```
+| Variable          | Description                    | Default                    |
+| ----------------- | ------------------------------ | -------------------------- |
+| `AUTH_AUTHORITY`  | OIDC authority (Cognito URL)   | —                          |
+| `AUTH_REDIRECT_URL` | Post-login redirect URL      | `http://localhost:4200`    |
+| `AUTH_CLIENT_ID`  | Cognito app client ID          | —                          |
+| `AUTH_SCOPE`      | OIDC scopes (space-separated)  | `openid email`             |
+| `API_BASE_URL`    | Backend API base URL           | `http://localhost:8080/api` |
 
-## Building
+`src/environments/environment.ts` is generated automatically from `.env` on `npm start` and `npm run build` (via the `prestart`/`prebuild` hooks).
 
-To build the project run:
+## Commands
 
-```bash
-ng build
-```
+| Command                | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `npm start`            | Dev server at `http://localhost:4200`    |
+| `npm test`             | Run Vitest unit tests                    |
+| `npm run build`        | Production build to `dist/`              |
+| `npm run watch`        | Dev build with file watcher              |
+| `npx prettier --check .` | Check formatting                      |
+| `npx prettier --write .` | Fix formatting                        |
+| `npm run generate-env` | Regenerate `environment.ts` from `.env` |
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Architecture
 
-## Running unit tests
+- **Standalone components** only (no NgModules)
+- **Signals** for reactive state (`signal()`, `computed()`)
+- **Reactive Forms** with `FormBuilder.nonNullable.group`
+- Routes defined in `src/app/app.routes.ts`:
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+| Path               | Component      | Guard     | Description           |
+| ------------------ | -------------- | --------- | --------------------- |
+| `/`                | `LandingPage`  | —         | Public home page      |
+| `/admin`           | `AdminLayout`  | `authGuard` | Authenticated layout |
+| `/admin/register`  | `Register`     | `authGuard` | Persona registration  |
 
-```bash
-ng test
-```
+## Authentication
 
-## Running end-to-end tests
+Uses OIDC/OAuth2 (AWS Cognito) via `angular-auth-oidc-client`. The auth interceptor automatically attaches Bearer tokens to API requests. Configuration is in `src/app/auth/auth.config.ts`.
 
-For end-to-end (e2e) testing, run:
+## File naming
 
-```bash
-ng e2e
-```
+Components use `<name>.ts` / `<name>.html` / `<name>.css` (no `.component` suffix). When scaffolding with `ng generate component`, rename the generated files to match this convention.
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Tech stack
 
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Angular 21 · TypeScript 5.9 · Bootstrap 5 · Vitest · OIDC/AWS Cognito · SweetAlert2

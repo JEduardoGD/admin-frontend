@@ -11,6 +11,7 @@ export const authConfig = {
   useRefreshToken: true,
   renewTimeBeforeTokenExpiresInSeconds: 30,
   triggerRefreshWhenIdTokenExpired: false,
+  secureRoutes: [environment.api.baseUrl],
 };
 
 export const authProviders = provideAuth({ config: authConfig }, withAppInitializerAuthCheck());

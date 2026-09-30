@@ -40,6 +40,9 @@ const code = [
   `    clientId: ${JSON.stringify(get('AUTH_CLIENT_ID', ''))},`,
   `    scope: ${JSON.stringify(get('AUTH_SCOPE', 'openid email'))},`,
   '  },',
+  '  api: {',
+  `    baseUrl: ${JSON.stringify(get('API_BASE_URL', 'http://localhost:8080/api'))},`,
+  '  },',
   '};',
   '',
 ].join('\n');

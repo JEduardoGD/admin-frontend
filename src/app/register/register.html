@@ -1,0 +1,120 @@
+<div class="container mt-4">
+  <h2>Register</h2>
+  <ul class="nav nav-tabs">
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'persona'"
+        href="#"
+        (click)="selectTab('persona'); $event.preventDefault()"
+        >Datos persona</a
+      >
+    </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'domicilio'"
+        href="#"
+        (click)="selectTab('domicilio'); $event.preventDefault()"
+        >Datos domicilio</a
+      >
+    </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'contacto'"
+        href="#"
+        (click)="selectTab('contacto'); $event.preventDefault()"
+        >Datos de contacto</a
+      >
+    </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'imagen'"
+        href="#"
+        (click)="selectTab('imagen'); $event.preventDefault()"
+        >Imágenes</a
+      >
+    </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'afiliacion'"
+        href="#"
+        (click)="selectTab('afiliacion'); $event.preventDefault()"
+        >Afiliación</a
+      >
+    </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'aficionado'"
+        href="#"
+        (click)="selectTab('aficionado'); $event.preventDefault()"
+        >Aficionado</a
+      >
+    </li>
+    <li class="nav-item">
+      <a
+        class="nav-link"
+        [class.active]="activeTab() === 'aspirante'"
+        href="#"
+        (click)="selectTab('aspirante'); $event.preventDefault()"
+        >Aspirante</a
+      >
+    </li>
+  </ul>
+
+  @if (activeTab() === 'persona') {
+    <app-register-person [idPersona]="idPersona()!" (personaSaved)="onPersonaSaved($event)" />
+  }
+
+  @if (activeTab() === 'domicilio') {
+    @if (idPersona()) {
+      <app-register-domicilio [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+
+  @if (activeTab() === 'contacto') {
+    @if (idPersona()) {
+      <app-register-dato-contacto [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+
+  @if (activeTab() === 'imagen') {
+    @if (idPersona()) {
+      <app-register-imagen [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+
+  @if (activeTab() === 'afiliacion') {
+    @if (idPersona()) {
+      <app-register-afiliacion [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+
+  @if (activeTab() === 'aficionado') {
+    @if (idPersona()) {
+      <app-register-aficionado [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+
+  @if (activeTab() === 'aspirante') {
+    @if (idPersona()) {
+      <app-register-aspirante [idPersona]="idPersona()!" />
+    } @else {
+      <div class="alert alert-warning mt-3">Primero debes guardar los datos de la persona.</div>
+    }
+  }
+</div>

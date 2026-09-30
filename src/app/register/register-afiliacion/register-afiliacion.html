@@ -1,0 +1,284 @@
+<div class="mt-3">
+  <form [formGroup]="afiliacionForm" (ngSubmit)="onSubmit()" class="afiliacion-form">
+    <div class="mb-3">
+      <label for="idEstado" class="form-label">Estado *</label>
+      <select
+        id="idEstado"
+        class="form-select"
+        formControlName="idEstado"
+        [class.is-invalid]="
+          afiliacionForm.controls.idEstado.invalid && afiliacionForm.controls.idEstado.touched
+        "
+      >
+        <option value="" disabled>Seleccione un estado</option>
+        @for (estado of estados(); track estado.idEstado) {
+          <option [value]="estado.idEstado">{{ estadoLabel(estado) }}</option>
+        }
+      </select>
+      @if (estadosError()) {
+        <div class="alert alert-danger mt-2 mb-0 py-2">{{ estadosError() }}</div>
+      }
+      @if (afiliacionForm.controls.idEstado.invalid && afiliacionForm.controls.idEstado.touched) {
+        <div class="invalid-feedback">El estado es obligatorio.</div>
+      }
+    </div>
+
+    <div class="mb-3">
+      <label for="idTipoAfiliacion" class="form-label">Tipo de afiliación *</label>
+      <select
+        id="idTipoAfiliacion"
+        class="form-select"
+        formControlName="idTipoAfiliacion"
+        [class.is-invalid]="
+          afiliacionForm.controls.idTipoAfiliacion.invalid &&
+          afiliacionForm.controls.idTipoAfiliacion.touched
+        "
+      >
+        <option value="" disabled>Seleccione un tipo de afiliación</option>
+        @for (tipo of tiposAfiliacion(); track tipo.idTipoAfiliacion) {
+          <option [value]="tipo.idTipoAfiliacion">{{ tipoAfiliacionLabel(tipo) }}</option>
+        }
+      </select>
+      @if (tiposAfiliacionError()) {
+        <div class="alert alert-danger mt-2 mb-0 py-2">{{ tiposAfiliacionError() }}</div>
+      }
+      @if (
+        afiliacionForm.controls.idTipoAfiliacion.invalid &&
+        afiliacionForm.controls.idTipoAfiliacion.touched
+      ) {
+        <div class="invalid-feedback">El tipo de afiliación es obligatorio.</div>
+      }
+    </div>
+
+    <div class="mb-3">
+      <label for="fechaInicio" class="form-label">Fecha de inicio *</label>
+      <input
+        id="fechaInicio"
+        type="date"
+        class="form-control"
+        formControlName="fechaInicio"
+        [class.is-invalid]="
+          (afiliacionForm.controls.fechaInicio.invalid &&
+            afiliacionForm.controls.fechaInicio.touched) ||
+          (afiliacionForm.errors?.['fechaOrder'] && afiliacionForm.touched)
+        "
+      />
+      @if (
+        afiliacionForm.controls.fechaInicio.invalid && afiliacionForm.controls.fechaInicio.touched
+      ) {
+        <div class="invalid-feedback">La fecha de inicio es obligatoria.</div>
+      }
+    </div>
+
+    <div class="mb-3">
+      <label for="fechaFin" class="form-label">Fecha de fin</label>
+      <input
+        id="fechaFin"
+        type="date"
+        class="form-control"
+        formControlName="fechaFin"
+        [class.is-invalid]="
+          afiliacionForm.touched &&
+          (afiliacionForm.errors?.['fechaOrder'] || afiliacionForm.errors?.['fechaFinRequired'])
+        "
+      />
+      @if (afiliacionForm.touched && afiliacionForm.errors?.['fechaOrder']) {
+        <div class="invalid-feedback d-block">
+          La fecha de inicio debe ser anterior a la fecha de fin.
+        </div>
+      }
+      @if (afiliacionForm.touched && afiliacionForm.errors?.['fechaFinRequired']) {
+        <div class="invalid-feedback d-block">
+          La fecha de fin es requerida si la afiliación no es vitalicia.
+        </div>
+      }
+    </div>
+
+    <div class="form-check mb-3">
+      <input id="vitalicia" class="form-check-input" type="checkbox" formControlName="vitalicia" />
+      <label class="form-check-label" for="vitalicia">Vitalicia</label>
+    </div>
+
+    <div class="mb-3">
+      <p class="form-label mb-2">Imágenes</p>
+      @if (tiposError()) {
+        <div class="alert alert-danger">{{ tiposError() }}</div>
+      }
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <p class="fw-semibold mb-2">Imagen de pago</p>
+          <div class="imagen-thumb-wrap mb-2">
+            @if (images().pago.thumbnailUrl) {
+              <img
+                [src]="images().pago.thumbnailUrl"
+                alt="Vista previa de la imagen de pago"
+                class="imagen-thumb"
+              />
+            } @else if (images().pago.uploading) {
+              <div class="imagen-thumb-placeholder text-muted">Subiendo...</div>
+            } @else {
+              <div class="imagen-thumb-placeholder text-muted">Sin vista previa</div>
+            }
+          </div>
+          <label
+            class="btn btn-outline-secondary btn-sm mb-0"
+            [class.disabled]="images().pago.uploading || saving()"
+          >
+            @if (images().pago.uuid) {
+              Reemplazar archivo
+            } @else {
+              Subir imagen
+            }
+            <input
+              id="filePago"
+              type="file"
+              accept="image/*"
+              class="d-none"
+              [disabled]="images().pago.uploading || saving()"
+              (change)="onSelectFile($event, 'pago')"
+            />
+          </label>
+          @if (images().pago.error) {
+            <div class="alert alert-danger mt-2 mb-0 py-2">{{ images().pago.error }}</div>
+          }
+        </div>
+        <div class="col-12 col-md-6">
+          <p class="fw-semibold mb-2">Imagen de solicitud</p>
+          <div class="imagen-thumb-wrap mb-2">
+            @if (images().solicitud.thumbnailUrl) {
+              <img
+                [src]="images().solicitud.thumbnailUrl"
+                alt="Vista previa de la imagen de solicitud"
+                class="imagen-thumb"
+              />
+            } @else if (images().solicitud.uploading) {
+              <div class="imagen-thumb-placeholder text-muted">Subiendo...</div>
+            } @else {
+              <div class="imagen-thumb-placeholder text-muted">Sin vista previa</div>
+            }
+          </div>
+          <label
+            class="btn btn-outline-secondary btn-sm mb-0"
+            [class.disabled]="images().solicitud.uploading || saving()"
+          >
+            @if (images().solicitud.uuid) {
+              Reemplazar archivo
+            } @else {
+              Subir imagen
+            }
+            <input
+              id="fileSolicitud"
+              type="file"
+              accept="image/*"
+              class="d-none"
+              [disabled]="images().solicitud.uploading || saving()"
+              (change)="onSelectFile($event, 'solicitud')"
+            />
+          </label>
+          @if (images().solicitud.error) {
+            <div class="alert alert-danger mt-2 mb-0 py-2">
+              {{ images().solicitud.error }}
+            </div>
+          }
+        </div>
+      </div>
+      @if (imageError()) {
+        <div class="invalid-feedback d-block">{{ imageError() }}</div>
+      }
+    </div>
+
+    @if (saveSuccess()) {
+      <div class="alert alert-success">Afiliación guardada correctamente.</div>
+    }
+    @if (saveError()) {
+      <div class="alert alert-danger">{{ saveError() }}</div>
+    }
+
+    <div class="d-flex flex-wrap gap-2">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="saving() || images().pago.uploading || images().solicitud.uploading"
+      >
+        @if (saving()) {
+          Guardando...
+        } @else if (editingId()) {
+          Actualizar
+        } @else {
+          Guardar
+        }
+      </button>
+      @if (editingId()) {
+        <button type="button" class="btn btn-outline-secondary" (click)="onCancelEdit()">
+          Cancelar
+        </button>
+      }
+    </div>
+  </form>
+
+  <h3 class="h5 mt-4">Afiliaciones</h3>
+
+  @if (loadError()) {
+    <div class="alert alert-danger">{{ loadError() }}</div>
+  }
+
+  @if (loading()) {
+    <p class="text-muted">Cargando afiliaciones...</p>
+  } @else if (afiliaciones().length === 0) {
+    <div class="alert alert-info">Esta persona aún no tiene afiliaciones.</div>
+  } @else {
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle">
+        <thead>
+          <tr>
+            <th>Fecha de inicio</th>
+            <th>Fecha de fin</th>
+            <th>Vitalicia</th>
+            <th>Estado</th>
+            <th>Tipo</th>
+            <th>Última modificación</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (afiliacion of afiliaciones(); track afiliacion.idAfiliacion) {
+            <tr [class.afiliacion-row-deleted]="afiliacion.deleted">
+              <td>{{ formatFecha(afiliacion.fechaInicio) }}</td>
+              <td>{{ formatFecha(afiliacion.fechaFin) }}</td>
+              <td>{{ afiliacion.vitalicia ? 'Sí' : 'No' }}</td>
+              <td>{{ estadoAbreviado(afiliacion) }}</td>
+              <td>{{ tipoAfiliacionNombre(afiliacion) }}</td>
+              <td>{{ formatDateTime(afiliacion.modifiedAt) }}</td>
+              <td>
+                @if (!afiliacion.deleted) {
+                  <div class="d-flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary btn-sm"
+                      [disabled]="saving() || deletingId() !== null"
+                      (click)="onEdit(afiliacion)"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger btn-sm"
+                      [disabled]="saving() || deletingId() !== null"
+                      (click)="onDelete(afiliacion)"
+                    >
+                      @if (deletingId() === afiliacion.idAfiliacion) {
+                        Eliminando...
+                      } @else {
+                        Eliminar
+                      }
+                    </button>
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

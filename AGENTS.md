@@ -3,32 +3,119 @@
 ## Commands
 
 ```bash
-npm start              # dev server on http://localhost:4200
+npm start              # generate-env + dev server on http://localhost:4200
 npm test               # run Vitest unit tests (via ng test)
-npm run build          # production build to dist/
-npm run watch          # dev build with watch mode
+npm run build          # generate-env + production build to dist/
+npm run watch          # generate-env + dev build with watch mode
+npm run generate-env   # regenerate src/environments/environment.ts from .env
 npx prettier --check . # check formatting
 npx prettier --write . # fix formatting
 npx ng generate component <name>  # scaffolding — see File-naming quirk below
 ```
 
-No lint or e2e scripts are configured (README mentions `ng e2e` but angular.json has no e2e builder).
+No lint or e2e scripts are configured.
 
 ## Architecture
 
 - Angular 21, standalone components only (no NgModules)
 - Entrypoint: `src/main.ts` bootstraps `App` from `src/app/app.ts` using `appConfig` from `src/app/app.config.ts`
-- Routes defined in `src/app/app.routes.ts`
-- Global styles: `src/styles.css` (plain CSS, not SCSS)
-- **Bootstrap 5** is a dependency — CSS classes and utilities are available
-- **Angular Signals** (`signal()`) are used for reactive state, not RxJS `BehaviorSubject`
-- `src/app/` content is placeholder/scaffolding; replace freely
+- `App` is a thin shell (`<router-outlet />` only). Authenticated chrome lives in `AdminLayout`
+- Global styles: `src/styles.css` (plain CSS, not SCSS). **Bootstrap 5 CSS** is imported there; Bootstrap JS is loaded from CDN in `src/index.html`
+- **Angular Signals** (`signal()`, `computed()`, `input()`, `output()`, `effect()`) are used for component state and parent/child communication
+- **RxJS Observables** still drive HTTP (via `ApiService` and feature services)
+- **`inject()`** (functional DI) is used everywhere, not constructor injection
+- Forms use **Reactive Forms** (`FormBuilder.nonNullable.group`) in the tab child components, not in `Register` itself
+- **SweetAlert2** (`sweetalert2`) is used for confirmation and session-expired dialogs, not Angular Material. Inline **Bootstrap 5 modals** (not SweetAlert) are used for in-page overlays that need live content — e.g. the CP-info modal in `RegisterDomicilio` and the camera modal in `RegisterPerson`. Open them programmatically via `window.bootstrap.Modal` (declared as a global from the CDN in `src/index.html`), not `data-bs-toggle`.
+- Import convention: `import Swal from 'sweetalert2'` (lowercase `Swal`), called as `Swal.fire({...})`
+- User-facing copy (labels, alerts, SweetAlert text) is in **Spanish**
+
+## Routes
+
+Defined in `src/app/app.routes.ts`:
+
+| Path              | Component      | Guard       | Notes                                                                                   |
+| ----------------- | -------------- | ----------- | --------------------------------------------------------------------------------------- |
+| `/`               | `LandingPage`  | —           | Public home; login or link to `/admin`                                                  |
+| `/admin`          | `AdminLayout`  | `authGuard` | Header + footer + child `router-outlet`                                                 |
+| `/admin` (child)  | `ControlPanel` | inherited   | Default authenticated view; persona DataTable with credencial download                  |
+| `/admin/register` | `Register`     | inherited   | Persona + domicilio + contacto + imágenes + afiliación + aficionado tabs; `?idPersona=` |
+
+`authGuard` (`src/app/auth/auth.guard.ts`) is a functional `CanActivateFn`. If `AuthService.isAuthenticated()` is false it calls `login()` and returns `false`.
+
+## ControlPanel / Datatable
+
+- `ControlPanel` (`src/app/control-panel/`) is a thin shell hosting the reusable `Datatable` component (`src/app/control-panel/datatable/`)
+- `Datatable` initializes **DataTables.net** (v3, `datatables.net-bs5` + select + buttons plugins) imperatively in `ngAfterViewInit` on a `viewChild()` table ref; destroyed in `ngOnDestroy`. Not Angular-idiomatic wrappers — plain JS init with Spanish `language` strings
+- Server-side processing: `ajax` delegates to `DatatableService.find` → `POST sumary` (DataTables request body → `DataTableResponse` with `DatatableObj[]` rows `{ idPersona, name, readyForCredencial }`)
+- Buttons copy/csv/excel/pdf/print are enabled; HTML5 export requires `JSZip` and `pdfMake` (vfs fonts bundled) registered via `DataTable.Buttons.jszip/pdfMake`
+- Row actions (delegated click handler on anchors with `data-idpersona`): "Ver" and the name link navigate to `/admin/register?idPersona=…`; "Credencial" (rendered only when `readyForCredencial`) calls `DatatableService.credencial` → `GET credencial/:idPersona` (blob) and triggers a `credencial-<id>.pdf` download via a temporary object URL; errors show a SweetAlert ("No se pudo descargar la credencial.")
+
+## Register flow
+
+`Register` (`src/app/register/register.ts`) is a tab orchestrator. It does **not** own the forms.
+
+- Tabs: `persona` (default), `domicilio`, `contacto`, `imagen`, `afiliacion`, `aficionado`, and `aspirante`, stored in `activeTab` signal
+- `idPersona` is seeded from the `?idPersona=` query param on init (set by the ControlPanel "Ver" / name links)
+- After a persona is saved, `idPersona` is stored; the domicilio, contacto, imágenes, afiliación, and aficionado tabs — and the persona photo capture — are blocked until then
+- `RegisterPerson` (`src/app/register/register-person/`): create/update persona, duplicate check via `PersonaService.search` + SweetAlert, emits `personaSaved`. Also captures a **personal photo**: a "Tomar foto" button (disabled until `idPersona` is set) opens the `CameraCapture` modal; on capture it runs `POST file` → `POST imagen` (with `idTipoImagenDocumento = 1`, the PERSONAL PHOTO type) → thumbnail `GET imagen/thumbnail/:uuid`, and lists thumbnails below the form. Multiple photos per persona; they load via `effect()` on `idPersona`. Object-URL thumbnails are revoked on `DestroyRef`.
+  - `CameraCapture` (`src/app/register/register-person/camera-capture/`): reusable Bootstrap modal wrapping a live `getUserMedia` `<video>` preview with a device selector and a "Capturar" button (canvas → JPEG `File`). Emits `photoCaptured: output<File>`; starts the stream on the modal's `shown.bs.modal` event and stops all tracks on `hidden.bs.modal`. The stream/camera lifecycle is owned here, not by the parent.
+- `RegisterDomicilio` (`src/app/register/register-domicilio/`): create/update domicilio for the current `idPersona`
+- `RegisterDatoContacto` (`src/app/register/register-dato-contacto/`): 0-N datos de contacto per persona (same `TipoDatoContacto` may repeat). Form + summary table: select tipo (`GET static_catalog/tipo_datocontacto`, options show `TIPO - DESCRIPCIÓN`; the table shows `tipoContacto`) + free-text `dato`, validated per tipo (EMAIL format; MOVIL 10 dígitos; FIJO 7 u 10 dígitos). `inicio` / `fin` are **not** captured or sent — the backend manages them; rows with a filled `fin` are treated as deleted and filtered out of the list. Create (`POST datocontacto`) / update (`PUT datocontacto`, with `idDatoContacto`); the Eliminar button (SweetAlert confirm) calls `DatoContactoService.remove` → `DELETE datocontacto/:id`, an endpoint the backend does not expose yet.
+- `RegisterImagen` (`src/app/register/register-imagen/`): 0-N images per persona. Upload file (`POST file`) → thumbnail (`GET imagen/thumbnail/{uuid}`) → select type (`GET static_catalog/tipo_imagen/for_persona`) → create (`POST imagen`) or update (`POST imagen/update`). Same type may repeat. No delete of saved images; unsaved drafts can be discarded in the UI. Replacing a saved file persists immediately. Images that belong to an afiliación (`idAfiliacion != null`) are filtered out — this tab shows only persona documents.
+- `RegisterAfiliacion` (`src/app/register/register-afiliacion/`): 0-N afiliaciones per persona. An `estado` and a `tipo de afiliación` are both mandatory: selected from `GET static_catalog/estado` (options show `ABREVIADO - NOMBRE`; the summary table shows `abreviado`) and `GET static_catalog/tipo_afiliacion` (options show `TIPO - DESCRIPCIÓN`; the summary table shows `tipo`); legacy rows without `idEstado` / `idTipoAfiliacion` force a selection on edit. Dates are `<input type="date">` in the form and sent as `yyyy-MM-dd`; the API may return them as epoch-millis numbers, so `toInputDate()` accepts `string | number | Date`. Each afiliación requires two images (types `PAGO` and `SOLICITUD` from `GET static_catalog/tipo_imagen/for_afiliacion`). Save order: create (`POST afiliacion`) or update (`PUT afiliacion`) **first**, then create/update each `imagen` with the returned `idAfiliacion` (and `idPersona`). The image→afiliación link lives on `Imagen.idAfiliacion`, not on the afiliación. Edit-slot loading is resolved by matching the persona's images (`GET imagen/find_by/idpersona/:id`) on `idAfiliacion` + `idTipoImagenDocumento`; when a matched image has no `uuid`, it falls back to `GET imagen/find_by/id/:id`. The summary table shows columns Inicio, Fin, Vitalicia, Estado, Tipo, Última modificación and Acciones — no image thumbnails. Soft-delete sets `deleted: true` via update.
+- `RegisterAficionado` (`src/app/register/register-aficionado/`): 0-N registros de aficionado per persona. Form: mandatory free-text `indicativo` + optional `fechaInicio` (prefilled today) / `fechaFin` (if both set, inicio must be before fin). Each row may optionally link a single **CERTIFICADO** image (`idTipoImagen` 3, resolved from `GET static_catalog/tipo_imagen/for_persona`). Save order is the **inverse of afiliación**: upload (`POST file`) → create/update `imagen` (`POST imagen` / `POST imagen/update`, persona image — no `idAfiliacion`) **first**, then `POST aficionado` / `PUT aficionado` with the resulting `idImagen` (the link lives on `Aficionado.idImagen`, not on the Imagen). Edit-slot image is resolved by matching the persona's images on `idImagen`; falls back to `GET imagen/find_by/id/:id` when the matched row has no `uuid`. Delete is a **hard delete** (`DELETE aficionado/:id`) after SweetAlert confirm. Summary table columns: ID, Indicativo, Inicio, Fin, Acciones.
+- Child components use `input.required()` / `output()` and load existing records with `effect()`
+- `RegisterAspirante` (`src/app/register/register-aspirante/`): 0-N aspirantes per persona. Form: mandatory `idEstado` (from `GET static_catalog/estado`, options show `ABREVIADO - NOMBRE`; the table shows `abreviado`) + `fechaInicio` (prefilled today) / `fechaFin` (if both set, inicio must be before fin). No indicativo and no images. `contadorEstado` is **read-only** (shown in the summary table, never edited; preserved from the loaded row on update, sent as `null` on create). Save via `POST aspirante` / `PUT aspirante` (not `aspirante/update`); reads via `GET aspirante/find_by/id_persona/:id` and `GET aspirante/find_by/id_aspirante/:id`. Delete button (SweetAlert confirm) calls `DELETE aspirante/:id` — an endpoint the backend does not expose yet. Table columns: ID, Estado, Contador, Inicio, Fin, Acciones.
+- Dates are formatted with `formatDate(..., 'yyyy-MM-dd', 'en-US')` for `<input type="date">`
+
+## Auth & backend
+
+- OIDC via `angular-auth-oidc-client` (AWS Cognito)
+  - Config: `src/app/auth/auth.config.ts` (`provideAuth` + `withAppInitializerAuthCheck()`)
+  - Wrapper: `AuthService` in `src/app/auth/auth.service.ts` — `isAuthenticated` is a `computed()` over `OidcSecurityService.authenticated()`
+  - Guard: `src/app/auth/auth.guard.ts`
+- HTTP: `provideHttpClient(withInterceptors([authInterceptor()]))` in `app.config.ts` — Bearer token is attached automatically for URLs in `secureRoutes` (the API base URL)
+- Base API client: `src/app/core/api.service.ts` (`ApiService` with typed `get/post/put/delete`, plus `postForm` for `FormData` and `getBlob` for binary, prefixed with `environment.api.baseUrl`)
+- Feature services inject `ApiService` and must **not** call `HttpClient` directly
+
+## HTTP & error handling
+
+- `ErrorHandlerService` (`src/app/core/error-handler.service.ts`): on HTTP 401, shows a SweetAlert (“Sesión expirada”) and navigates to `/`
+- Feature services pipe HTTP calls with `catchError((err) => this.errorHandler.handleUnauthorized(err))`
+- Backend **updates use POST** to `resource/update`, not HTTP PUT. Follow existing services:
+
+| Service               | Create              | Update                  | Read                                                                                                                                                                                                                                                                                |
+| --------------------- | ------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PersonaService`      | `POST persona`      | `POST persona/update`   | `GET persona/:id`, `GET persona` (search)                                                                                                                                                                                                                                           |
+| `DomicilioService`    | `POST domicilio`    | `POST domicilio/update` | `GET domicilio/find_by/idpersona/:id`, `GET address/by_cp/:cp` (returns `Localizacion` with `colonias[]`, snake_case fields)                                                                                                                                                        |
+| `ImagenService`       | `POST imagen`       | `POST imagen/update`    | `GET imagen/find_by/idpersona/:id`, `GET imagen/find_by/id/:id`, `GET imagen/thumbnail/:uuid` (blob), `POST file` (multipart field `file` → `{ filename, uploadError, frontError }`), `GET static_catalog/tipo_imagen/for_persona`, `GET static_catalog/tipo_imagen/for_afiliacion` |
+| `AfiliacionService`   | `POST afiliacion`   | `PUT afiliacion`        | `GET afiliacion/find_by/id_persona/:id`, `GET static_catalog/estado` (returns `Estado[]`), `GET static_catalog/tipo_afiliacion` (returns `TipoAfiliacion[]`)                                                                                                                        |
+| `DatoContactoService` | `POST datocontacto` | `PUT datocontacto`      | `GET datocontacto/find_by/idpersona/:id`, `GET datocontacto/find_by/id/:id`, `DELETE datocontacto/:id` (pending backend), `GET static_catalog/tipo_datocontacto` (returns `TipoDatoContacto[]`)                                                                                     |
+| `AficionadoService`   | `POST aficionado`   | `PUT aficionado`        | `GET aficionado/find_by/id_persona/:id`, `GET aficionado/find_by/id_aficionado/:id`, `DELETE aficionado/:id`                                                                                                                                                                        |
+| `AspiranteService`    | `POST aspirante`    | `PUT aspirante`         | `GET aspirante/find_by/id_persona/:id`, `GET aspirante/find_by/id_aspirante/:id`, `DELETE aspirante/:id` (pending backend)                                                                                                                                                          |
+| `DatatableService`    | —                   | —                       | `POST sumary` (server-side DataTables payload → `DataTableResponse`), `GET credencial/:idPersona` (blob via `getBlob`)                                                                                                                                                              |
+
+`Imagen` body: `{ idImagen?, idPersona, idAfiliacion?, uuid, idTipoImagenDocumento }`. `idAfiliacion` is set only for afiliación images (pago/solicitud); persona images omit it. Catalog items use `idTipoImagen`; map that to `idTipoImagenDocumento` on save. `UploadResult.filename` is the stored uuid (with extension). `POST file` returns HTTP 200 even when `uploadError` is true — check the body. The **PERSONAL PHOTO** captured in `RegisterPerson` is stored with a hardcoded `idTipoImagenDocumento = 1`; because it is a persona image (`idAfiliacion` null), it also shows up in the `RegisterImagen` tab.
+
+`Afiliacion` body: `{ idAfiliacion?, idPersona, idEstado, idTipoAfiliacion, fechaInicio, fechaFin, vitalicia, deleted }`. `idEstado` is a mandatory FK to the `Estado` catalog (`{ idEstado, abreviado, nombre }` from `GET static_catalog/estado`). `idTipoAfiliacion` is a mandatory FK to the `TipoAfiliacion` catalog (`{ idTipoAfiliacion, tipo, descripcion }` from `GET static_catalog/tipo_afiliacion`). `fechaInicio` / `fechaFin` are sent as `yyyy-MM-dd` but may be returned as epoch-millis numbers. The afiliación no longer carries image ids — its images are `Imagen` rows linked via `idAfiliacion`.
+
+`DatoContacto` body: `{ idDatoContacto?, idPersona, idTipoDatoContacto, dato, inicio?, fin? }`. `idTipoDatoContacto` is a mandatory FK to the `TipoDatoContacto` catalog (`{ idTipoDatoContacto, tipoContacto, descripcion }` from `GET static_catalog/tipo_datocontacto`: `EMAIL`, `MOVIL`, `FIJO`). The front **never** sends `inicio` / `fin` — the backend manages them; a row with a filled `fin` is treated as deleted and filtered out of the list. Unlike other resources, `DatoContactoService` updates via HTTP `PUT datocontacto` (matching the backend), and `remove(id)` calls `DELETE datocontacto/:id` (backend endpoint still pending).
+
+`Aficionado` body: `{ idAficionado?, idPersona, indicativo, fechaInicio, fechaFin, idImagen }`. `fechaInicio` / `fechaFin` are optional (`null` when empty), sent as `yyyy-MM-dd` but may be returned as ISO date-time strings. `idImagen` is a nullable FK to an `Imagen` row (usually a CERTIFICADO persona image); unlike afiliación, the link lives on the **Aficionado**, not on the `Imagen`. `DELETE aficionado/:id` is a real hard delete (no `deleted` flag).
+
+`Aspirante` body: `{ idAspirante?, idPersona, idEstado, contadorEstado, fechaInicio, fechaFin }`. `idEstado` is a mandatory FK to the `Estado` catalog. `contadorEstado` is managed by the backend: the front shows it read-only, preserves the loaded value on update, and sends `null` on create. `fechaInicio` / `fechaFin` are sent as `yyyy-MM-dd` but may come back as ISO strings.
+
+## Environment config
+
+- All runtime parameters live in `.env` (gitignored): `AUTH_AUTHORITY`, `AUTH_REDIRECT_URL`, `AUTH_CLIENT_ID`, `AUTH_SCOPE`, `API_BASE_URL`
+- `npm run generate-env` (also `prestart`/`prebuild`, and the `watch` script) runs `scripts/generate-env.mjs`, which generates `src/environments/environment.ts` (also gitignored — never edit it manually)
+- Adding a new env var: add it to `.env` **and** to the template in `scripts/generate-env.mjs`
 
 ## File-naming quirk
 
 Components use `<name>.ts` / `<name>.html` / `<name>.css` — **not** `<name>.component.ts`. The root component class is `App` (not `AppComponent`), in `src/app/app.ts`.
 
-**Gotcha:** `ng generate component` produces `.component.ts` files by default. Either rename the generated files to match the `<name>.ts` convention, or configure `schematics` in `angular.json` to skip the `.component` suffix.
+**Gotcha:** `ng generate component` produces `.component.ts` files by default (`angular.json` schematics are empty). Either rename the generated files to match the `<name>.ts` convention, or configure schematics in `angular.json` to skip the `.component` suffix.
 
 ## Testing (Vitest)
 
