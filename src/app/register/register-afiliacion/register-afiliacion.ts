@@ -1,4 +1,4 @@
-import { Component, DestroyRef, effect, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
 import { formatDate } from '@angular/common';
 import {
   AbstractControl,
@@ -13,6 +13,7 @@ import { forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import Swal from 'sweetalert2';
 import { Imagen, ImagenService, TipoImagen } from '../register-imagen/imagen.service';
 import { Afiliacion, AfiliacionService, Estado, TipoAfiliacion } from './afiliacion.service';
+import { Archivo, ArchivoService, TipoArchivo } from './archivo.service';
 
 export type ImageSlot = 'pago' | 'solicitud';
 
@@ -65,6 +66,19 @@ function emptyImages(): Record<ImageSlot, AfiliacionImage> {
   return { pago: emptyImage(), solicitud: emptyImage() };
 }
 
+interface AfiliacionArchivo {
+  idArchivo?: number;
+  uuid: string | null;
+  filename: string | null;
+  uploading: boolean;
+  error: string | null;
+  dirty: boolean;
+}
+
+function emptyArchivo(): AfiliacionArchivo {
+  return { uuid: null, filename: null, uploading: false, error: null, dirty: false };
+}
+
 function afiliacionDatesValidator(group: AbstractControl): ValidationErrors | null {
   const fechaInicio = (group.get('fechaInicio')?.value as string) || '';
   const fechaFin = (group.get('fechaFin')?.value as string) || '';
@@ -89,6 +103,7 @@ export class RegisterAfiliacion {
   private readonly fb = inject(FormBuilder);
   private readonly afiliacionService = inject(AfiliacionService);
   private readonly imagenService = inject(ImagenService);
+  private readonly archivoService = inject(ArchivoService);
   private readonly errorHandler = inject(ErrorHandlerService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -111,6 +126,14 @@ export class RegisterAfiliacion {
   readonly editingId = signal<number | null>(null);
   readonly deletingId = signal<number | null>(null);
   readonly images = signal<Record<ImageSlot, AfiliacionImage>>(emptyImages());
+  readonly tiposArchivo = signal<Array<TipoArchivo>>([]);
+  readonly tiposArchivoError = signal<string | null>(null);
+  readonly archivos = signal<Record<number, AfiliacionArchivo>>({});
+  readonly archivosLoading = signal(false);
+  readonly archivosLoadError = signal<string | null>(null);
+  readonly archivosUploading = computed(() =>
+    Object.values(this.archivos()).some((archivo) => archivo.uploading),
+  );
 
   readonly afiliacionForm = this.fb.nonNullable.group(
     {
@@ -136,6 +159,7 @@ export class RegisterAfiliacion {
     this.loadTipos();
     this.loadEstados();
     this.loadTiposAfiliacion();
+    this.loadTiposArchivo();
 
     this.afiliacionForm.controls.vitalicia.valueChanges
       .pipe(takeUntilDestroyed())
@@ -232,7 +256,62 @@ export class RegisterAfiliacion {
     });
   }
 
+  onSelectArchivo(event: Event, idTipoArchivo: number): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (
+      !file ||
+      this.saving() ||
+      this.archivosLoading() ||
+      this.archivosLoadError() ||
+      this.archivos()[idTipoArchivo]?.uploading
+    ) {
+      return;
+    }
+    if (!/\.(doc|pdf)$/i.test(file.name)) {
+      this.patchArchivo(idTipoArchivo, { error: 'Selecciona un archivo .doc o .pdf.' });
+      return;
+    }
+
+    const editingId = this.editingId();
+    this.patchArchivo(idTipoArchivo, { uploading: true, error: null });
+    this.archivoService.upload(file).subscribe({
+      next: (result) => {
+        if (this.editingId() !== editingId) return;
+        if (result.uploadError || !result.filename) {
+          this.patchArchivo(idTipoArchivo, {
+            uploading: false,
+            error: result.frontError || 'No se pudo subir el archivo. Intenta de nuevo.',
+          });
+          return;
+        }
+        this.patchArchivo(idTipoArchivo, {
+          uuid: result.filename,
+          filename: file.name,
+          uploading: false,
+          dirty: true,
+        });
+      },
+      error: () => {
+        if (this.editingId() !== editingId) return;
+        this.patchArchivo(idTipoArchivo, {
+          uploading: false,
+          error: 'No se pudo subir el archivo. Intenta de nuevo.',
+        });
+      },
+    });
+  }
+
   onSubmit(): void {
+    if (
+      this.saving() ||
+      this.archivosLoading() ||
+      this.archivosLoadError() ||
+      this.archivosUploading()
+    ) {
+      return;
+    }
     if (this.afiliacionForm.invalid) {
       this.afiliacionForm.markAllAsTouched();
       return;
@@ -248,6 +327,7 @@ export class RegisterAfiliacion {
     this.imageError.set(null);
 
     const payload = this.toPayload(false);
+    const creating = !payload.idAfiliacion;
     const afiliacionRequest = payload.idAfiliacion
       ? this.afiliacionService.update(payload)
       : this.afiliacionService.create(payload);
@@ -259,9 +339,14 @@ export class RegisterAfiliacion {
           if (idAfiliacion === undefined) {
             return throwError(() => new Error('missing idAfiliacion'));
           }
+          if (creating) {
+            this.afiliacionForm.controls.idAfiliacion.setValue(String(idAfiliacion));
+            this.editingId.set(idAfiliacion);
+          }
           return forkJoin({
             pago: this.saveImage('pago', idAfiliacion),
             solicitud: this.saveImage('solicitud', idAfiliacion),
+            archivos: this.saveArchivos(idAfiliacion),
           });
         }),
       )
@@ -315,6 +400,8 @@ export class RegisterAfiliacion {
       this.afiliacionForm.controls.fechaFin.enable({ emitEvent: false });
     }
     this.setImagesFromAfiliacion(afiliacion);
+    this.archivos.set({});
+    this.loadArchivos(afiliacion.idAfiliacion);
     this.syncing = false;
   }
 
@@ -418,6 +505,45 @@ export class RegisterAfiliacion {
     });
   }
 
+  private loadArchivos(idAfiliacion: number): void {
+    this.archivosLoading.set(true);
+    this.archivosLoadError.set(null);
+    this.archivoService.findByAfiliacion(this.idPersona(), idAfiliacion).subscribe({
+      next: (archivos) => {
+        if (this.editingId() !== idAfiliacion) return;
+        const slots: Record<number, AfiliacionArchivo> = {};
+        for (const archivo of archivos ?? []) {
+          if (slots[archivo.idTipoArchivo]) continue;
+          slots[archivo.idTipoArchivo] = {
+            idArchivo: archivo.idArchivo,
+            uuid: archivo.uuid,
+            filename: archivo.uuid,
+            uploading: false,
+            error: null,
+            dirty: false,
+          };
+        }
+        this.archivos.set(slots);
+        this.archivosLoading.set(false);
+      },
+      error: () => {
+        if (this.editingId() !== idAfiliacion) return;
+        this.archivosLoading.set(false);
+        this.archivosLoadError.set('No se pudieron cargar los archivos de la afiliación.');
+      },
+    });
+  }
+
+  private loadTiposArchivo(): void {
+    this.archivoService.listTipos().subscribe({
+      next: (tipos) => {
+        this.tiposArchivo.set(tipos ?? []);
+        this.tiposArchivoError.set(null);
+      },
+      error: () => this.tiposArchivoError.set('No se pudieron cargar los tipos de archivo.'),
+    });
+  }
+
   private loadEstados(): void {
     this.afiliacionService.listEstados().subscribe({
       next: (estados) => {
@@ -501,6 +627,40 @@ export class RegisterAfiliacion {
         return saved.idImagen;
       }),
     );
+  }
+
+  private saveArchivos(idAfiliacion: number): Observable<Array<Archivo>> {
+    const pending = Object.entries(this.archivos())
+      .filter(([, archivo]) => archivo.dirty && archivo.uuid)
+      .map(([idTipoArchivo, slot]) => {
+        const archivo: Archivo = {
+          ...(slot.idArchivo !== undefined ? { idArchivo: slot.idArchivo } : {}),
+          uuid: slot.uuid!,
+          idTipoArchivo: Number(idTipoArchivo),
+          idPersona: this.idPersona(),
+          idAfiliacion,
+        };
+        const request = slot.idArchivo
+          ? this.archivoService.update(archivo)
+          : this.archivoService.create(archivo);
+        return request.pipe(
+          map((saved) => {
+            if (saved.idArchivo === undefined) {
+              throw new Error('missing idArchivo');
+            }
+            this.patchArchivo(archivo.idTipoArchivo, { idArchivo: saved.idArchivo, dirty: false });
+            return saved;
+          }),
+        );
+      });
+    return pending.length ? forkJoin(pending) : of([]);
+  }
+
+  private patchArchivo(idTipoArchivo: number, patch: Partial<AfiliacionArchivo>): void {
+    this.archivos.update((current) => ({
+      ...current,
+      [idTipoArchivo]: { ...(current[idTipoArchivo] ?? emptyArchivo()), ...patch },
+    }));
   }
 
   private setImagesFromAfiliacion(afiliacion: Afiliacion): void {
@@ -632,6 +792,9 @@ export class RegisterAfiliacion {
     }
     this.saveError.set(null);
     this.imageError.set(null);
+    this.archivos.set({});
+    this.archivosLoading.set(false);
+    this.archivosLoadError.set(null);
     for (const slot of ['pago', 'solicitud'] as Array<ImageSlot>) {
       this.replaceImage(slot, emptyImage());
     }

@@ -1,11 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { EMPTY, of, throwError } from 'rxjs';
+import { EMPTY, of, Subject, throwError } from 'rxjs';
 import Swal from 'sweetalert2';
 import { Imagen, ImagenService, TipoImagen } from '../register-imagen/imagen.service';
 import { Afiliacion, AfiliacionService, Estado, TipoAfiliacion } from './afiliacion.service';
 import { ImageSlot, plusYearsIso, RegisterAfiliacion, todayIso } from './register-afiliacion';
+import { Archivo, ArchivoService, TipoArchivo } from './archivo.service';
 
 vi.mock('sweetalert2', () => ({
   default: {
@@ -31,6 +32,19 @@ describe('RegisterAfiliacion', () => {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
+  let archivoService: {
+    listTipos: ReturnType<typeof vi.fn>;
+    findByAfiliacion: ReturnType<typeof vi.fn>;
+    upload: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+
+  const tiposArchivo: TipoArchivo[] = [
+    { idTipoArchivo: 1, tipo: 'IDENTIFICACION' },
+    { idTipoArchivo: 2, tipo: 'SOLICITUD' },
+    { idTipoArchivo: 3, tipo: 'PAGO' },
+  ];
 
   const tipos: TipoImagen[] = [
     { idTipoImagen: 5, tipo: 'PAGO', descripcion: 'Comprobante', fechaInicio: '', fechaFin: null },
@@ -90,6 +104,7 @@ describe('RegisterAfiliacion', () => {
     overrides?: {
       afiliacion?: Partial<typeof afiliacionService>;
       imagen?: Partial<typeof imagenService>;
+      archivo?: Partial<typeof archivoService>;
     },
   ): Promise<void> {
     afiliacionService = {
@@ -110,6 +125,14 @@ describe('RegisterAfiliacion', () => {
       update: vi.fn(),
       ...overrides?.imagen,
     };
+    archivoService = {
+      listTipos: vi.fn(() => of(tiposArchivo)),
+      findByAfiliacion: vi.fn(() => of([])),
+      upload: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      ...overrides?.archivo,
+    };
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
@@ -117,6 +140,7 @@ describe('RegisterAfiliacion', () => {
       providers: [
         { provide: AfiliacionService, useValue: afiliacionService },
         { provide: ImagenService, useValue: imagenService },
+        { provide: ArchivoService, useValue: archivoService },
         { provide: Router, useValue: { navigate: vi.fn() } },
       ],
     }).compileComponents();
@@ -136,6 +160,17 @@ describe('RegisterAfiliacion', () => {
     const file = new File(['img'], filename, { type: 'image/jpeg' });
     const fileInput = fileInputFor(slot);
     Object.defineProperty(fileInput, 'files', { value: [file] });
+    fileInput.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  async function attachArchivo(idTipoArchivo: number, filename: string): Promise<void> {
+    const file = new File(['documento'], filename);
+    const fileInput = fixture.nativeElement.querySelector(
+      `#archivo-${idTipoArchivo}`,
+    ) as HTMLInputElement;
+    Object.defineProperty(fileInput, 'files', { configurable: true, value: [file] });
     fileInput.dispatchEvent(new Event('change'));
     await fixture.whenStable();
     fixture.detectChanges();
@@ -208,6 +243,11 @@ describe('RegisterAfiliacion', () => {
     expect(compiled.querySelector('#fileSolicitud')).not.toBeNull();
     expect(compiled.textContent).toContain('Imagen de pago');
     expect(compiled.textContent).toContain('Imagen de solicitud');
+    expect(compiled.querySelectorAll('input[type="file"][accept=".doc,.pdf"]')).toHaveLength(3);
+    expect(compiled.textContent).toContain('IDENTIFICACION');
+    expect(compiled.textContent).toContain('SOLICITUD');
+    expect(compiled.textContent).toContain('PAGO');
+    expect(archivoService.listTipos).toHaveBeenCalled();
     expect(afiliacionService.findByIdPersona).toHaveBeenCalledWith(42);
     expect(imagenService.listTiposForAfiliacion).toHaveBeenCalled();
   });
@@ -322,6 +362,216 @@ describe('RegisterAfiliacion', () => {
 
     expect(afiliacionService.create).toHaveBeenCalled();
     expect(imagenService.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('uploads one .doc or .pdf for each catalog type after creating the afiliacion', async () => {
+    await createComponent(42, {
+      afiliacion: { create: vi.fn(() => of(existing)) },
+      archivo: {
+        upload: vi.fn((file: File) =>
+          of({ filename: `stored-${file.name}`, uploadError: false, frontError: null }),
+        ),
+        create: vi.fn((archivo: Archivo) =>
+          of({ ...archivo, idArchivo: archivo.idTipoArchivo + 10 }),
+        ),
+      },
+    });
+
+    await attachArchivo(1, 'identificacion.doc');
+    await attachArchivo(2, 'solicitud.pdf');
+    await attachArchivo(3, 'pago.PDF');
+    selectCatalogos();
+    submitForm();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(afiliacionService.create).toHaveBeenCalled();
+    expect(archivoService.create).toHaveBeenCalledTimes(3);
+    for (const [idTipoArchivo, filename] of [
+      [1, 'identificacion.doc'],
+      [2, 'solicitud.pdf'],
+      [3, 'pago.PDF'],
+    ] as const) {
+      expect(archivoService.create).toHaveBeenCalledWith({
+        uuid: `stored-${filename}`,
+        idTipoArchivo,
+        idPersona: 42,
+        idAfiliacion: 9,
+      });
+    }
+    expect(fixture.nativeElement.textContent).toContain('Afiliación guardada correctamente.');
+  });
+
+  it('rejects unsupported files before upload and keeps the previous file on upload failure', async () => {
+    await createComponent(42, {
+      archivo: {
+        upload: vi
+          .fn()
+          .mockReturnValueOnce(of({ filename: 'stored.pdf', uploadError: false, frontError: null }))
+          .mockReturnValueOnce(
+            of({ filename: null, uploadError: true, frontError: 'Archivo inválido' }),
+          ),
+      },
+    });
+
+    await attachArchivo(1, 'documento.docx');
+    expect(archivoService.upload).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('Selecciona un archivo .doc o .pdf.');
+
+    await attachArchivo(1, 'documento.pdf');
+    await attachArchivo(1, 'otro.doc');
+    expect(archivoService.upload).toHaveBeenCalledTimes(2);
+    expect(fixture.componentInstance.archivos()[1].uuid).toBe('stored.pdf');
+    expect(fixture.nativeElement.textContent).toContain('Archivo inválido');
+  });
+
+  it('saves only the last uploaded file when the same type is selected twice', async () => {
+    await createComponent(42, {
+      afiliacion: { create: vi.fn(() => of(existing)) },
+      archivo: {
+        upload: vi.fn((file: File) =>
+          of({ filename: file.name, uploadError: false, frontError: null }),
+        ),
+        create: vi.fn((archivo: Archivo) => of({ ...archivo, idArchivo: 20 })),
+      },
+    });
+
+    await attachArchivo(3, 'anterior.pdf');
+    await attachArchivo(3, 'nuevo.doc');
+    selectCatalogos();
+    submitForm();
+    await fixture.whenStable();
+
+    expect(archivoService.create).toHaveBeenCalledExactlyOnceWith({
+      uuid: 'nuevo.doc',
+      idTipoArchivo: 3,
+      idPersona: 42,
+      idAfiliacion: 9,
+    });
+  });
+
+  it('retries a failed archivo save against the same afiliacion', async () => {
+    await createComponent(42, {
+      afiliacion: {
+        create: vi.fn(() => of(existing)),
+        update: vi.fn(() => of(existing)),
+      },
+      archivo: {
+        upload: vi.fn(() => of({ filename: 'pago.pdf', uploadError: false, frontError: null })),
+        create: vi
+          .fn()
+          .mockReturnValueOnce(throwError(() => new Error('fail')))
+          .mockReturnValueOnce(
+            of({
+              idArchivo: 20,
+              uuid: 'pago.pdf',
+              idTipoArchivo: 3,
+              idPersona: 42,
+              idAfiliacion: 9,
+            }),
+          ),
+      },
+    });
+
+    await attachArchivo(3, 'pago.pdf');
+    selectCatalogos();
+    submitForm();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain(
+      'No se pudo guardar la afiliación. Intenta de nuevo.',
+    );
+    expect(fixture.componentInstance.editingId()).toBe(9);
+
+    submitForm();
+    await fixture.whenStable();
+
+    expect(afiliacionService.create).toHaveBeenCalledOnce();
+    expect(afiliacionService.update).toHaveBeenCalledOnce();
+    expect(archivoService.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('loads existing archivos when editing and updates only the replaced type', async () => {
+    const savedArchivo: Archivo = {
+      idArchivo: 20,
+      uuid: 'original.pdf',
+      idTipoArchivo: 3,
+      idPersona: 42,
+      idAfiliacion: 9,
+    };
+    await createComponent(42, {
+      afiliacion: {
+        findByIdPersona: vi.fn(() => of([existing])),
+        update: vi.fn(() => of(existing)),
+      },
+      archivo: {
+        findByAfiliacion: vi.fn(() => of([savedArchivo])),
+        upload: vi.fn(() => of({ filename: 'nuevo.pdf', uploadError: false, frontError: null })),
+        update: vi.fn((archivo: Archivo) => of(archivo)),
+      },
+    });
+
+    editButton().click();
+    fixture.detectChanges();
+    expect(archivoService.findByAfiliacion).toHaveBeenCalledWith(42, 9);
+    expect(fixture.nativeElement.textContent).toContain('original.pdf');
+    await attachArchivo(3, 'pago.pdf');
+    selectCatalogos();
+    submitForm();
+    await fixture.whenStable();
+
+    expect(archivoService.update).toHaveBeenCalledExactlyOnceWith({
+      idArchivo: 20,
+      uuid: 'nuevo.pdf',
+      idTipoArchivo: 3,
+      idPersona: 42,
+      idAfiliacion: 9,
+    });
+    expect(archivoService.create).not.toHaveBeenCalled();
+  });
+
+  it('waits for existing archivos before allowing an edited afiliacion to be saved', async () => {
+    const pending = new Subject<Array<Archivo>>();
+    await createComponent(42, {
+      afiliacion: {
+        findByIdPersona: vi.fn(() => of([existing])),
+        update: vi.fn(() => of(existing)),
+      },
+      archivo: { findByAfiliacion: vi.fn(() => pending) },
+    });
+
+    editButton().click();
+    fixture.detectChanges();
+    const submit = fixture.nativeElement.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    submitForm();
+    expect(afiliacionService.update).not.toHaveBeenCalled();
+
+    pending.next([]);
+    pending.complete();
+    fixture.detectChanges();
+    expect(submit.disabled).toBe(false);
+    submitForm();
+    expect(afiliacionService.update).toHaveBeenCalledOnce();
+  });
+
+  it('does not save an edited afiliacion if existing archivos cannot be loaded', async () => {
+    await createComponent(42, {
+      afiliacion: {
+        findByIdPersona: vi.fn(() => of([existing])),
+        update: vi.fn(() => of(existing)),
+      },
+      archivo: { findByAfiliacion: vi.fn(() => throwError(() => new Error('fail'))) },
+    });
+
+    editButton().click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain(
+      'No se pudieron cargar los archivos de la afiliación.',
+    );
+    submitForm();
+    expect(afiliacionService.update).not.toHaveBeenCalled();
   });
 
   it('requires an estado before saving', async () => {

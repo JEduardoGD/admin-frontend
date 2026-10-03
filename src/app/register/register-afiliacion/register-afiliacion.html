@@ -187,6 +187,65 @@
       }
     </div>
 
+    <div class="mb-3">
+      <p class="form-label mb-2">Archivos (.doc o .pdf)</p>
+      @if (tiposArchivoError()) {
+        <div class="alert alert-danger">{{ tiposArchivoError() }}</div>
+      }
+      @if (archivosLoadError()) {
+        <div class="alert alert-danger">{{ archivosLoadError() }}</div>
+      }
+      @if (archivosLoading()) {
+        <p class="text-muted">Cargando archivos...</p>
+      }
+      <div class="d-flex flex-column gap-3">
+        @for (tipo of tiposArchivo(); track tipo.idTipoArchivo) {
+          <div>
+            <label class="form-label d-block" [for]="'archivo-' + tipo.idTipoArchivo">
+              {{ tipo.tipo }}
+            </label>
+            <label
+              class="btn btn-outline-secondary btn-sm mb-0"
+              [class.disabled]="
+                archivosLoading() ||
+                !!archivosLoadError() ||
+                archivos()[tipo.idTipoArchivo]?.uploading ||
+                saving()
+              "
+            >
+              @if (archivos()[tipo.idTipoArchivo]?.uuid) {
+                Reemplazar archivo
+              } @else {
+                Subir archivo
+              }
+              <input
+                [id]="'archivo-' + tipo.idTipoArchivo"
+                type="file"
+                accept=".doc,.pdf"
+                class="d-none"
+                [disabled]="
+                  archivosLoading() ||
+                  !!archivosLoadError() ||
+                  archivos()[tipo.idTipoArchivo]?.uploading ||
+                  saving()
+                "
+                (change)="onSelectArchivo($event, tipo.idTipoArchivo)"
+              />
+            </label>
+            @if (archivos()[tipo.idTipoArchivo]?.uploading) {
+              <span class="ms-2 text-muted">Subiendo...</span>
+            }
+            @if (archivos()[tipo.idTipoArchivo]?.filename; as filename) {
+              <span class="ms-2 archivo-filename">{{ filename }}</span>
+            }
+            @if (archivos()[tipo.idTipoArchivo]?.error; as error) {
+              <div class="alert alert-danger mt-2 mb-0 py-2">{{ error }}</div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
     @if (saveSuccess()) {
       <div class="alert alert-success">Afiliación guardada correctamente.</div>
     }
@@ -198,7 +257,14 @@
       <button
         type="submit"
         class="btn btn-primary"
-        [disabled]="saving() || images().pago.uploading || images().solicitud.uploading"
+        [disabled]="
+          saving() ||
+          images().pago.uploading ||
+          images().solicitud.uploading ||
+          archivosUploading() ||
+          archivosLoading() ||
+          !!archivosLoadError()
+        "
       >
         @if (saving()) {
           Guardando...
