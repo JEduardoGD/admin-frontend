@@ -231,7 +231,10 @@ describe('RegisterAfiliacion', () => {
     const fechaInicio = compiled.querySelector('#fechaInicio') as HTMLInputElement;
     const fechaFin = compiled.querySelector('#fechaFin') as HTMLInputElement;
     const vitalicia = compiled.querySelector('#vitalicia') as HTMLInputElement;
+    const idAfiliacion = compiled.querySelector('#idAfiliacion') as HTMLInputElement;
 
+    expect(idAfiliacion.readOnly).toBe(true);
+    expect(idAfiliacion.value).toBe('');
     expect(fechaInicio.value).toBe(todayIso());
     expect(fechaFin.value).toBe(plusYearsIso(1));
     expect(fechaFin.disabled).toBe(false);
@@ -340,9 +343,10 @@ describe('RegisterAfiliacion', () => {
     });
 
     const cells = fixture.nativeElement.querySelectorAll('tbody td');
-    expect(cells[0].textContent).toContain('2026-01-10');
-    expect(cells[1].textContent).toContain('2027-01-10');
-    expect(cells[3].textContent).toContain('BCS');
+    expect(cells[0].textContent.trim()).toBe('9');
+    expect(cells[1].textContent).toContain('2026-01-10');
+    expect(cells[2].textContent).toContain('2027-01-10');
+    expect(cells[4].textContent).toContain('BCS');
   });
 
   it('saves without images when they are optional', async () => {
@@ -609,6 +613,9 @@ describe('RegisterAfiliacion', () => {
       'No se pudo guardar la afiliación. Intenta de nuevo.',
     );
     expect(fixture.componentInstance.editingId()).toBe(9);
+    expect((fixture.nativeElement.querySelector('#idAfiliacion') as HTMLInputElement).value).toBe(
+      '9',
+    );
 
     submitForm();
     await fixture.whenStable();
@@ -868,6 +875,9 @@ describe('RegisterAfiliacion', () => {
 
     const fechaInicio = fixture.nativeElement.querySelector('#fechaInicio') as HTMLInputElement;
     const fechaFin = fixture.nativeElement.querySelector('#fechaFin') as HTMLInputElement;
+    const idAfiliacion = fixture.nativeElement.querySelector('#idAfiliacion') as HTMLInputElement;
+    expect(idAfiliacion.readOnly).toBe(true);
+    expect(idAfiliacion.value).toBe('9');
     expect(fechaInicio.value).toBe('2026-01-10');
     expect(fechaFin.value).toBe('2027-01-10');
     expect(fixture.nativeElement.textContent).toContain('Actualizar');
@@ -894,6 +904,26 @@ describe('RegisterAfiliacion', () => {
       deleted: false,
     });
     expect(afiliacionService.create).not.toHaveBeenCalled();
+  });
+
+  it('clears the read-only afiliación ID when cancelling an edit', async () => {
+    await createComponent(42, {
+      afiliacion: { findByIdPersona: vi.fn(() => of([existing])) },
+    });
+
+    editButton().click();
+    fixture.detectChanges();
+    const idAfiliacion = fixture.nativeElement.querySelector('#idAfiliacion') as HTMLInputElement;
+    expect(idAfiliacion.value).toBe('9');
+
+    const cancel = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+    ).find((button) => button.textContent?.includes('Cancelar')) as HTMLButtonElement;
+    cancel.click();
+    fixture.detectChanges();
+
+    expect(idAfiliacion.value).toBe('');
+    expect(idAfiliacion.readOnly).toBe(true);
   });
 
   it('updates only the existing pago image when replacing its file on an edited afiliacion', async () => {
@@ -972,7 +1002,8 @@ describe('RegisterAfiliacion', () => {
     });
 
     const cells = fixture.nativeElement.querySelectorAll('tbody td');
-    expect(cells[4].textContent).toContain('AFICIONADO');
+    expect(cells[5].textContent).toContain('AFICIONADO');
+    expect(fixture.nativeElement.querySelector('thead').textContent).toContain('ID Afiliación');
     expect(fixture.nativeElement.querySelector('thead').textContent).toContain('Tipo');
     expect(fixture.nativeElement.querySelector('thead').textContent).not.toContain('Pago');
     expect(fixture.nativeElement.querySelector('thead').textContent).not.toContain('Solicitud');
@@ -1000,6 +1031,7 @@ describe('RegisterAfiliacion', () => {
 
     const rows = fixture.nativeElement.querySelectorAll('tbody tr');
     expect(rows).toHaveLength(2);
+    expect(rows[1].querySelector('td').textContent.trim()).toBe('10');
     expect(rows[1].classList.contains('afiliacion-row-deleted')).toBe(true);
     expect(rows[0].textContent).toContain('Editar');
     expect(rows[0].textContent).toContain('Eliminar');
