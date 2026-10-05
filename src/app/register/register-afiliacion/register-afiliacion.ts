@@ -281,7 +281,7 @@ export class RegisterAfiliacion {
     ) {
       return;
     }
-    if (!/\.(doc|pdf)$/i.test(file.name)) {
+    if (!/\.(docx|doc|pdf)$/i.test(file.name)) {
       this.patchArchivo(idTipoArchivo, { error: 'Selecciona un archivo .doc o .pdf.' });
       return;
     }
