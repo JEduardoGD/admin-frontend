@@ -36,6 +36,12 @@ export class ArchivoService {
       .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
   }
 
+  getFile(uuid: string): Observable<Blob> {
+    return this.api
+      .getBlob(`file/files/${encodeURIComponent(uuid)}`)
+      .pipe(catchError((err: unknown) => this.errorHandler.handleUnauthorized(err)));
+  }
+
   create(archivo: Archivo): Observable<Archivo> {
     return this.api
       .post<Archivo>('archivo', archivo)

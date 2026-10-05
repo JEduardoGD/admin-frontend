@@ -235,11 +235,29 @@
             @if (archivos()[tipo.idTipoArchivo]?.uploading) {
               <span class="ms-2 text-muted">Subiendo...</span>
             }
-            @if (archivos()[tipo.idTipoArchivo]?.filename; as filename) {
-              <span class="ms-2 archivo-filename">{{ filename }}</span>
-            }
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm ms-2"
+              [attr.aria-label]="'Descargar archivo ' + tipo.tipo"
+              [disabled]="
+                !archivos()[tipo.idTipoArchivo]?.uuid ||
+                archivos()[tipo.idTipoArchivo]?.downloading ||
+                archivosLoading() ||
+                !!archivosLoadError()
+              "
+              (click)="onDownloadArchivo(tipo.idTipoArchivo)"
+            >
+              @if (archivos()[tipo.idTipoArchivo]?.downloading) {
+                Descargando...
+              } @else {
+                Descargar
+              }
+            </button>
             @if (archivos()[tipo.idTipoArchivo]?.error; as error) {
               <div class="alert alert-danger mt-2 mb-0 py-2">{{ error }}</div>
+            }
+            @if (archivos()[tipo.idTipoArchivo]?.downloadError; as downloadError) {
+              <div class="alert alert-danger mt-2 mb-0 py-2">{{ downloadError }}</div>
             }
           </div>
         }

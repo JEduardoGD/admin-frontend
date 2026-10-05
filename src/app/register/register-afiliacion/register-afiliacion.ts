@@ -70,13 +70,24 @@ interface AfiliacionArchivo {
   idArchivo?: number;
   uuid: string | null;
   filename: string | null;
+  file?: File;
   uploading: boolean;
+  downloading: boolean;
   error: string | null;
+  downloadError: string | null;
   dirty: boolean;
 }
 
 function emptyArchivo(): AfiliacionArchivo {
-  return { uuid: null, filename: null, uploading: false, error: null, dirty: false };
+  return {
+    uuid: null,
+    filename: null,
+    uploading: false,
+    downloading: false,
+    error: null,
+    downloadError: null,
+    dirty: false,
+  };
 }
 
 function afiliacionDatesValidator(group: AbstractControl): ValidationErrors | null {
@@ -153,6 +164,7 @@ export class RegisterAfiliacion {
   private syncing = false;
   private loadedPersonaId: number | null = null;
   private readonly objectUrls = new Set<string>();
+  private archivosGeneration = 0;
 
   constructor() {
     this.destroyRef.onDestroy(() => this.revokeAllObjectUrls());
@@ -289,7 +301,10 @@ export class RegisterAfiliacion {
         this.patchArchivo(idTipoArchivo, {
           uuid: result.filename,
           filename: file.name,
+          file,
           uploading: false,
+          downloading: false,
+          downloadError: null,
           dirty: true,
         });
       },
@@ -299,6 +314,53 @@ export class RegisterAfiliacion {
           uploading: false,
           error: 'No se pudo subir el archivo. Intenta de nuevo.',
         });
+      },
+    });
+  }
+
+  onDownloadArchivo(idTipoArchivo: number): void {
+    const archivo = this.archivos()[idTipoArchivo];
+    if (
+      !archivo?.uuid ||
+      archivo.downloading ||
+      this.archivosLoading() ||
+      this.archivosLoadError()
+    ) {
+      return;
+    }
+
+    const uuid = archivo.uuid;
+    const filename = archivo.filename || uuid;
+    const generation = this.archivosGeneration;
+    const isCurrent = (): boolean =>
+      generation === this.archivosGeneration &&
+      this.archivos()[idTipoArchivo]?.uuid === uuid &&
+      this.archivos()[idTipoArchivo]?.file === archivo.file;
+    this.patchArchivo(idTipoArchivo, { downloading: true, downloadError: null });
+    const source = archivo.file ? of(archivo.file) : this.archivoService.getFile(uuid);
+    source.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (blob) => {
+        if (!isCurrent()) return;
+        this.patchArchivo(idTipoArchivo, { downloading: false });
+        const url = this.createObjectUrl(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        try {
+          anchor.click();
+        } finally {
+          anchor.remove();
+          this.revokeObjectUrl(url);
+        }
+      },
+      error: () => {
+        if (isCurrent()) {
+          this.patchArchivo(idTipoArchivo, {
+            downloading: false,
+            downloadError: 'No se pudo descargar el archivo. Intenta de nuevo.',
+          });
+        }
       },
     });
   }
@@ -372,6 +434,7 @@ export class RegisterAfiliacion {
       return;
     }
 
+    this.archivosGeneration++;
     this.syncing = true;
     this.saveSuccess.set(false);
     this.saveError.set(null);
@@ -519,7 +582,9 @@ export class RegisterAfiliacion {
             uuid: archivo.uuid,
             filename: archivo.uuid,
             uploading: false,
+            downloading: false,
             error: null,
+            downloadError: null,
             dirty: false,
           };
         }
@@ -784,6 +849,7 @@ export class RegisterAfiliacion {
   }
 
   private resetForm(options?: { keepSuccess?: boolean }): void {
+    this.archivosGeneration++;
     this.syncing = true;
     this.editingId.set(null);
     this.saving.set(false);

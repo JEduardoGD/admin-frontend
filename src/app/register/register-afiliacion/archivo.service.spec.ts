@@ -10,10 +10,11 @@ describe('ArchivoService', () => {
     get: ReturnType<typeof vi.fn>;
     post: ReturnType<typeof vi.fn>;
     postForm: ReturnType<typeof vi.fn>;
+    getBlob: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
-    api = { get: vi.fn(), post: vi.fn(), postForm: vi.fn() };
+    api = { get: vi.fn(), post: vi.fn(), postForm: vi.fn(), getBlob: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         ArchivoService,
@@ -44,6 +45,15 @@ describe('ArchivoService', () => {
 
     expect(api.postForm).toHaveBeenCalledWith('file', expect.any(FormData));
     expect((api.postForm.mock.calls[0][1] as FormData).get('file')).toBe(file);
+  });
+
+  it('downloads a stored archivo through the authenticated API', () => {
+    const blob = new Blob(['archivo'], { type: 'application/pdf' });
+    api.getBlob.mockReturnValue(of(blob));
+
+    service.getFile('solicitud 1.pdf').subscribe((result) => expect(result).toBe(blob));
+
+    expect(api.getBlob).toHaveBeenCalledWith('file/files/solicitud%201.pdf');
   });
 
   it('creates and updates archivo metadata via the archivo controller', () => {

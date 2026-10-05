@@ -35,6 +35,7 @@ describe('RegisterAfiliacion', () => {
   let archivoService: {
     listTipos: ReturnType<typeof vi.fn>;
     findByAfiliacion: ReturnType<typeof vi.fn>;
+    getFile: ReturnType<typeof vi.fn>;
     upload: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -128,6 +129,7 @@ describe('RegisterAfiliacion', () => {
     archivoService = {
       listTipos: vi.fn(() => of(tiposArchivo)),
       findByAfiliacion: vi.fn(() => of([])),
+      getFile: vi.fn(),
       upload: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -182,6 +184,13 @@ describe('RegisterAfiliacion', () => {
     ) as HTMLButtonElement;
   }
 
+  function downloadButton(idTipoArchivo: number): HTMLButtonElement {
+    const tipo = tiposArchivo.find((item) => item.idTipoArchivo === idTipoArchivo)!;
+    return fixture.nativeElement.querySelector(
+      `button[aria-label="Descargar archivo ${tipo.tipo}"]`,
+    ) as HTMLButtonElement;
+  }
+
   function submitForm(): void {
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
       new Event('submit'),
@@ -212,6 +221,7 @@ describe('RegisterAfiliacion', () => {
 
   afterEach(() => {
     fixture?.destroy();
+    vi.restoreAllMocks();
   });
 
   it('initializes fechaInicio with today, fechaFin with today plus one year, and vitalicia unchecked', async () => {
@@ -247,6 +257,11 @@ describe('RegisterAfiliacion', () => {
     expect(compiled.textContent).toContain('IDENTIFICACION');
     expect(compiled.textContent).toContain('SOLICITUD');
     expect(compiled.textContent).toContain('PAGO');
+    expect(tiposArchivo.map((tipo) => downloadButton(tipo.idTipoArchivo).disabled)).toEqual([
+      true,
+      true,
+      true,
+    ]);
     expect(archivoService.listTipos).toHaveBeenCalled();
     expect(afiliacionService.findByIdPersona).toHaveBeenCalledWith(42);
     expect(imagenService.listTiposForAfiliacion).toHaveBeenCalled();
@@ -425,6 +440,119 @@ describe('RegisterAfiliacion', () => {
     expect(fixture.nativeElement.textContent).toContain('Archivo inválido');
   });
 
+  it('downloads the selected Word and PDF files with their original filenames before saving', async () => {
+    await createComponent(42, {
+      archivo: {
+        upload: vi.fn((file: File) =>
+          of({ filename: `stored-${file.name}`, uploadError: false, frontError: null }),
+        ),
+      },
+    });
+    const urls = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:archivo');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
+    const downloaded: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      downloaded.push(this.download);
+    });
+
+    await attachArchivo(1, 'identificacion.doc');
+    expect(downloadButton(1).disabled).toBe(false);
+    expect(downloadButton(2).disabled).toBe(true);
+    downloadButton(1).click();
+
+    await attachArchivo(3, 'pago.pdf');
+    expect(downloadButton(3).disabled).toBe(false);
+    downloadButton(3).click();
+
+    expect(downloaded).toEqual(['identificacion.doc', 'pago.pdf']);
+    expect(urls).toHaveBeenCalledWith(fixture.componentInstance.archivos()[1].file);
+    expect(urls).toHaveBeenCalledWith(fixture.componentInstance.archivos()[3].file);
+    expect(revoke).toHaveBeenCalledTimes(2);
+    expect(archivoService.getFile).not.toHaveBeenCalled();
+  });
+
+  it('downloads a saved archivo while editing and prevents duplicate requests', async () => {
+    const pending = new Subject<Blob>();
+    await createComponent(42, {
+      afiliacion: { findByIdPersona: vi.fn(() => of([existing])) },
+      archivo: {
+        findByAfiliacion: vi.fn(() =>
+          of([
+            {
+              idArchivo: 20,
+              uuid: 'solicitud.pdf',
+              idTipoArchivo: 2,
+              idPersona: 42,
+              idAfiliacion: 9,
+            },
+          ]),
+        ),
+        getFile: vi.fn(() => pending),
+      },
+    });
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:archivo');
+    const downloaded: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      downloaded.push(this.download);
+    });
+
+    editButton().click();
+    fixture.detectChanges();
+    expect(downloadButton(1).disabled).toBe(true);
+    expect(downloadButton(2).disabled).toBe(false);
+    downloadButton(2).click();
+    fixture.detectChanges();
+    expect(downloadButton(2).disabled).toBe(true);
+    fixture.componentInstance.onDownloadArchivo(2);
+    expect(archivoService.getFile).toHaveBeenCalledExactlyOnceWith('solicitud.pdf');
+
+    const blob = new Blob(['pdf'], { type: 'application/pdf' });
+    pending.next(blob);
+    pending.complete();
+    fixture.detectChanges();
+
+    expect(URL.createObjectURL).toHaveBeenCalledWith(blob);
+    expect(downloaded).toEqual(['solicitud.pdf']);
+    expect(downloadButton(2).disabled).toBe(false);
+  });
+
+  it('shows download failures without losing the file and ignores an old request after cancelling', async () => {
+    const pending = new Subject<Blob>();
+    await createComponent(42, {
+      afiliacion: { findByIdPersona: vi.fn(() => of([existing])) },
+      archivo: {
+        findByAfiliacion: vi.fn(() =>
+          of([
+            { idArchivo: 21, uuid: 'pago.doc', idTipoArchivo: 3, idPersona: 42, idAfiliacion: 9 },
+          ]),
+        ),
+        getFile: vi
+          .fn()
+          .mockReturnValueOnce(throwError(() => new Error('fail')))
+          .mockReturnValueOnce(pending),
+      },
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    editButton().click();
+    fixture.detectChanges();
+    downloadButton(3).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('No se pudo descargar el archivo.');
+    expect(downloadButton(3).disabled).toBe(false);
+
+    downloadButton(3).click();
+    fixture.componentInstance.onCancelEdit();
+    pending.next(new Blob(['doc']));
+    fixture.detectChanges();
+    expect(downloadButton(3).disabled).toBe(true);
+    expect(click).not.toHaveBeenCalled();
+  });
+
   it('saves only the last uploaded file when the same type is selected twice', async () => {
     await createComponent(42, {
       afiliacion: { create: vi.fn(() => of(existing)) },
@@ -511,9 +639,10 @@ describe('RegisterAfiliacion', () => {
     });
 
     editButton().click();
+    await fixture.whenStable();
     fixture.detectChanges();
     expect(archivoService.findByAfiliacion).toHaveBeenCalledWith(42, 9);
-    expect(fixture.nativeElement.textContent).toContain('original.pdf');
+    expect(fixture.componentInstance.archivos()[3].filename).toBe('original.pdf');
     await attachArchivo(3, 'pago.pdf');
     selectCatalogos();
     submitForm();
