@@ -29,3 +29,7 @@
   text-align: center;
   padding: 0.5rem;
 }
+
+.archivo-filename {
+  overflow-wrap: anywhere;
+}
