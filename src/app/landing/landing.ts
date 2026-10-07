@@ -1,8 +1,8 @@
 import {
-  AfterViewInit,
   Component,
   ElementRef,
   OnDestroy,
+  afterRenderEffect,
   inject,
   signal,
   viewChild,
@@ -34,23 +34,32 @@ declare global {
   templateUrl: './landing.html',
   styleUrl: './landing.css',
 })
-export class LandingPage implements AfterViewInit, OnDestroy {
+export class LandingPage implements OnDestroy {
   private readonly authService = inject(AuthService);
-  private readonly turnstileContainer =
-    viewChild.required<ElementRef<HTMLDivElement>>('turnstileContainer');
+  private readonly turnstileContainer = viewChild<ElementRef<HTMLDivElement>>('turnstileContainer');
   private script?: HTMLScriptElement;
   private widgetId?: string;
   readonly isAuthenticated = this.authService.isAuthenticated;
   readonly turnstilePassed = signal(false);
 
-  ngAfterViewInit(): void {
-    if (!environment.turnstile.siteKey) return;
+  constructor() {
+    afterRenderEffect(() => {
+      if (this.isAuthenticated()) {
+        this.removeWidget();
+      } else if (environment.turnstile.siteKey && this.turnstileContainer()) {
+        this.loadWidget();
+      }
+    });
+  }
 
+  private loadWidget(): void {
+    if (this.widgetId) return;
     if (window.turnstile) {
       this.renderWidget();
       return;
     }
 
+    if (this.script) return;
     this.script =
       document.querySelector<HTMLScriptElement>('#cloudflare-turnstile-script') ?? undefined;
     if (!this.script) {
@@ -66,13 +75,21 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.removeWidget();
+  }
+
+  private removeWidget(): void {
     this.script?.removeEventListener('load', this.renderWidget);
+    this.script = undefined;
     if (this.widgetId) window.turnstile?.remove(this.widgetId);
+    this.widgetId = undefined;
+    this.turnstilePassed.set(false);
   }
 
   private readonly renderWidget = (): void => {
-    if (window.turnstile && !this.widgetId) {
-      this.widgetId = window.turnstile.render(this.turnstileContainer().nativeElement, {
+    const container = this.turnstileContainer();
+    if (window.turnstile && container && !this.isAuthenticated() && !this.widgetId) {
+      this.widgetId = window.turnstile.render(container.nativeElement, {
         sitekey: environment.turnstile.siteKey,
         callback: (token) => this.turnstilePassed.set(!!token),
         'expired-callback': () => this.turnstilePassed.set(false),
