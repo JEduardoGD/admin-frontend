@@ -5,7 +5,9 @@
   @if (isAuthenticated()) {
     <a class="btn btn-primary mt-3" routerLink="/admin">Go to Admin Panel</a>
   } @else {
-    <button class="btn btn-primary mt-3" (click)="login()">Login</button>
+    <button class="btn btn-primary mt-3" [disabled]="!turnstilePassed()" (click)="login()">
+      Login
+    </button>
   }
 
   <div #turnstileContainer class="d-flex justify-content-center mt-4"></div>

@@ -1,4 +1,12 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, inject, viewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  OnDestroy,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { AuthService } from '../auth/auth.service';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
@@ -6,7 +14,15 @@ import { environment } from '../../environments/environment';
 declare global {
   interface Window {
     turnstile?: {
-      render: (container: HTMLElement, options: { sitekey: string }) => string;
+      render: (
+        container: HTMLElement,
+        options: {
+          sitekey: string;
+          callback: (token: string) => void;
+          'expired-callback': () => void;
+          'error-callback': () => void;
+        },
+      ) => string;
       remove: (widgetId: string) => void;
     };
   }
@@ -25,6 +41,7 @@ export class LandingPage implements AfterViewInit, OnDestroy {
   private script?: HTMLScriptElement;
   private widgetId?: string;
   readonly isAuthenticated = this.authService.isAuthenticated;
+  readonly turnstilePassed = signal(false);
 
   ngAfterViewInit(): void {
     if (!environment.turnstile.siteKey) return;
@@ -57,11 +74,14 @@ export class LandingPage implements AfterViewInit, OnDestroy {
     if (window.turnstile && !this.widgetId) {
       this.widgetId = window.turnstile.render(this.turnstileContainer().nativeElement, {
         sitekey: environment.turnstile.siteKey,
+        callback: (token) => this.turnstilePassed.set(!!token),
+        'expired-callback': () => this.turnstilePassed.set(false),
+        'error-callback': () => this.turnstilePassed.set(false),
       });
     }
   };
 
   login(): void {
-    this.authService.login();
+    if (this.turnstilePassed()) this.authService.login();
   }
 }

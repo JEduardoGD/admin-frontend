@@ -6,13 +6,15 @@ import { LandingPage } from './landing';
 
 describe('LandingPage Turnstile', () => {
   let fixture: ComponentFixture<LandingPage>;
+  let login: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    login = vi.fn();
     await TestBed.configureTestingModule({
       imports: [LandingPage],
       providers: [
         provideRouter([]),
-        { provide: AuthService, useValue: { isAuthenticated: () => false, login: vi.fn() } },
+        { provide: AuthService, useValue: { isAuthenticated: () => false, login } },
       ],
     }).compileComponents();
   });
@@ -39,7 +41,7 @@ describe('LandingPage Turnstile', () => {
 
     expect(render).toHaveBeenCalledWith(
       (fixture.nativeElement as HTMLElement).querySelector('div.d-flex.justify-content-center'),
-      { sitekey: environment.turnstile.siteKey },
+      expect.objectContaining({ sitekey: environment.turnstile.siteKey }),
     );
 
     fixture.destroy();
@@ -57,5 +59,38 @@ describe('LandingPage Turnstile', () => {
     fixture = TestBed.createComponent(LandingPage);
     fixture.detectChanges();
     expect(window.turnstile.render).toHaveBeenCalledTimes(2);
+  });
+
+  it('enables login only after a successful challenge and disables it on expiration or error', () => {
+    const render = vi.fn().mockReturnValue('widget-id');
+    window.turnstile = { render, remove: vi.fn() };
+    fixture = TestBed.createComponent(LandingPage);
+    fixture.detectChanges();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector('button')!;
+    const options = render.mock.calls[0][1] as Parameters<
+      NonNullable<Window['turnstile']>['render']
+    >[1];
+
+    expect(button.disabled).toBe(true);
+    fixture.componentInstance.login();
+    expect(login).not.toHaveBeenCalled();
+
+    options.callback('valid-token');
+    fixture.detectChanges();
+    expect(button.disabled).toBe(false);
+    button.click();
+    expect(login).toHaveBeenCalledOnce();
+
+    options['expired-callback']();
+    fixture.detectChanges();
+    expect(button.disabled).toBe(true);
+    fixture.componentInstance.login();
+    expect(login).toHaveBeenCalledOnce();
+
+    options.callback('new-token');
+    options['error-callback']();
+    fixture.detectChanges();
+    expect(button.disabled).toBe(true);
   });
 });
