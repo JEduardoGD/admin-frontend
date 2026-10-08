@@ -27,8 +27,7 @@ for (const line of raw.split('\n')) {
   if (key) vars[key] = value;
 }
 
-const get = (key, fallback) =>
-  vars[key] !== undefined ? vars[key] : fallback;
+const get = (key, fallback) => (vars[key] !== undefined ? vars[key] : fallback);
 
 const code = [
   '// This file is auto-generated from .env by scripts/generate-env.mjs',
@@ -42,6 +41,9 @@ const code = [
   '  },',
   '  api: {',
   `    baseUrl: ${JSON.stringify(get('API_BASE_URL', 'http://localhost:8080/api'))},`,
+  '  },',
+  '  turnstile: {',
+  `    siteKey: ${JSON.stringify(get('TURNSTILE_SITE_KEY', ''))},`,
   '  },',
   '};',
   '',
