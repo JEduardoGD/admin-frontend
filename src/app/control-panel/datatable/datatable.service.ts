@@ -21,6 +21,7 @@ export interface DataTablesRequest {
 export interface DatatableObj {
   idPersona: number;
   name: string;
+  callsign: string | null;
   readyForCredencial: boolean;
 }
 
