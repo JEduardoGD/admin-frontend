@@ -90,6 +90,7 @@ export class Datatable implements AfterViewInit, OnDestroy {
             return `<a href="#" class="dt-name-link" data-idpersona="${row.idPersona}">${data}</a>`;
           },
         },
+        { data: 'callsign', title: 'Indicativo', defaultContent: '' },
         {
           data: null,
           title: 'Acciones',
